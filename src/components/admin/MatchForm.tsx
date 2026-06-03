@@ -117,7 +117,11 @@ export function MatchForm({
     setError("");
 
     try {
-      await onSubmit(form);
+      const payload = {
+        ...form,
+        startAt: new Date(form.startAt).toISOString(),
+      };
+      await onSubmit(payload);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "操作失败");
