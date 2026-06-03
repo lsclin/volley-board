@@ -27,7 +27,7 @@ export async function PATCH(
     if (matchData.status !== undefined) updateData.status = matchData.status;
     if (matchData.note !== undefined) updateData.note = matchData.note;
 
-    const match = await prisma.match.update({
+    await prisma.match.update({
       where: { id },
       data: updateData,
       include: {

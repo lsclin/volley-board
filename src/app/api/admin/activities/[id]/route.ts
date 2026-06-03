@@ -2,7 +2,6 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { updateActivitySchema } from "@/lib/validators";
 import { computeCounts } from "@/lib/attendance";
-import { ActivityStatus } from "@prisma/client";
 
 export async function PATCH(
   request: Request,
@@ -46,9 +45,24 @@ export async function PATCH(
       activity.manualArrivedDelta,
     );
 
-    const { attendances, ...rest } = activity;
-
-    return Response.json({ ...rest, expectedCount, arrivedCount });
+    return Response.json({
+      id: activity.id,
+      title: activity.title,
+      type: activity.type,
+      startAt: activity.startAt,
+      endAt: activity.endAt,
+      location: activity.location,
+      note: activity.note,
+      status: activity.status,
+      visible: activity.visible,
+      manualExpectedDelta: activity.manualExpectedDelta,
+      manualArrivedDelta: activity.manualArrivedDelta,
+      peakArrivedCount: activity.peakArrivedCount,
+      createdAt: activity.createdAt,
+      updatedAt: activity.updatedAt,
+      expectedCount,
+      arrivedCount,
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return Response.json({ error: "未登录" }, { status: 401 });

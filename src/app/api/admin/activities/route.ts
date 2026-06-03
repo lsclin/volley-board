@@ -17,8 +17,24 @@ export async function GET() {
         activity.manualExpectedDelta,
         activity.manualArrivedDelta,
       );
-      const { attendances, ...rest } = activity;
-      return { ...rest, expectedCount, arrivedCount };
+      return {
+        id: activity.id,
+        title: activity.title,
+        type: activity.type,
+        startAt: activity.startAt,
+        endAt: activity.endAt,
+        location: activity.location,
+        note: activity.note,
+        status: activity.status,
+        visible: activity.visible,
+        manualExpectedDelta: activity.manualExpectedDelta,
+        manualArrivedDelta: activity.manualArrivedDelta,
+        peakArrivedCount: activity.peakArrivedCount,
+        createdAt: activity.createdAt,
+        updatedAt: activity.updatedAt,
+        expectedCount,
+        arrivedCount,
+      };
     });
 
     return Response.json(result);

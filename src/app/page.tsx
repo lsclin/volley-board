@@ -39,11 +39,6 @@ function subscribeToAttendanceChanges(callback: () => void): () => void {
   };
 }
 
-function getStoredStatus(activityId: string): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(`attendance_${activityId}`);
-}
-
 function setStoredStatus(activityId: string, status: string) {
   if (typeof window === "undefined") return;
   localStorage.setItem(`attendance_${activityId}`, status);
