@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum ActivityType {
+  pickup
+  training
+  friendly
+  match
+}
+
+enum ActivityStatus {
+  scheduled
+  live
+  ended
+  cancelled
+}
+
+enum AttendanceStatus {
+  expected
+  arrived
+  cancelled
+}
+
+enum MatchStatus {
+  scheduled
+  finished
+  cancelled
+}
+
+model Activity {
+  id                  String        @id @default(cuid())
+  title               String
+  type                ActivityType  @default(pickup)
+  startAt             DateTime
+  endAt               DateTime
+  location            String
+  note                String?
+  status              ActivityStatus @default(scheduled)
+  visible             Boolean       @default(true)
+  manualExpectedDelta Int           @default(0)
+  manualArrivedDelta  Int           @default(0)
+  peakArrivedCount    Int           @default(0)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  attendances         Attendance[]
+}
+
+model Attendance {
+  id         String           @id @default(cuid())
+  activityId String
+  clientId   String
+  status     AttendanceStatus
+  updatedAt  DateTime         @updatedAt
+
+  activity   Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, clientId])
+}
+
+model Team {
+  id       String  @id @default(cuid())
+  name     String
+  note     String?
+
+  matchesA Match[] @relation("TeamA")
+  matchesB Match[] @relation("TeamB")
+}
+
+model Match {
+  id       String      @id @default(cuid())
+  startAt  DateTime
+  location String
+  teamAId  String
+  teamBId  String
+  status   MatchStatus @default(scheduled)
+  note     String?
+
+  teamA    Team        @relation("TeamA", fields: [teamAId], references: [id])
+  teamB    Team        @relation("TeamB", fields: [teamBId], references: [id])
+  sets     MatchSet[]
+}
+
+model MatchSet {
+  id      String @id @default(cuid())
+  matchId String
+  setNo   Int
+  scoreA  Int
+  scoreB  Int
+
+  match   Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+}

@@ -1,65 +1,122 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useSyncExternalStore } from "react";
+import { ActivityCard } from "@/components/activity/ActivityCard";
+import { AttendanceButtons } from "@/components/activity/AttendanceButtons";
+import { useActivities } from "@/lib/useActivities";
+import { ActivityWithCounts } from "@/types";
+import { CalendarDays } from "lucide-react";
+import Link from "next/link";
+
+const ATTENDANCE_CHANGE_EVENT = "volley-attendance-change";
+
+function readStoredStatuses(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+
+  const statuses: Record<string, string> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith("attendance_")) continue;
+    const status = localStorage.getItem(key);
+    if (status) statuses[key.replace("attendance_", "")] = status;
+  }
+  return statuses;
+}
+
+function getAttendanceSnapshot(): string {
+  return JSON.stringify(readStoredStatuses());
+}
+
+function subscribeToAttendanceChanges(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  const handler = () => callback();
+  window.addEventListener("storage", handler);
+  window.addEventListener(ATTENDANCE_CHANGE_EVENT, handler);
+  return () => {
+    window.removeEventListener("storage", handler);
+    window.removeEventListener(ATTENDANCE_CHANGE_EVENT, handler);
+  };
+}
+
+function getStoredStatus(activityId: string): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(`attendance_${activityId}`);
+}
+
+function setStoredStatus(activityId: string, status: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(`attendance_${activityId}`, status);
+  window.dispatchEvent(new Event(ATTENDANCE_CHANGE_EVENT));
+}
 
 export default function Home() {
+  const { activities, isLoading, mutate } = useActivities();
+  const statusSnapshot = useSyncExternalStore(
+    subscribeToAttendanceChanges,
+    getAttendanceSnapshot,
+    () => "{}",
+  );
+  const statuses = JSON.parse(statusSnapshot) as Record<string, string>;
+
+  const handleAttendanceUpdate = useCallback(
+    (activityId: string) => (newStatus: string) => {
+      setStoredStatus(activityId, newStatus);
+      mutate();
+    },
+    [mutate],
+  );
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">活动看板</h1>
+        <p className="text-sm text-gray-500 mt-0.5">野球 & 训练实时签到</p>
+      </div>
+
+      {isLoading ? (
+        <div className="flex flex-col gap-4">
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-white rounded-2xl border border-gray-200 p-5 animate-pulse"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+              <div className="h-5 bg-gray-200 rounded w-2/3 mb-3" />
+              <div className="h-4 bg-gray-100 rounded w-1/2 mb-4" />
+              <div className="h-8 bg-gray-100 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : activities.length === 0 ? (
+        <div className="text-center py-16">
+          <CalendarDays className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 text-base mb-2">暂无活动</p>
+          <p className="text-gray-400 text-sm">
+            管理员创建野球场次后会在这里显示
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            href="/history"
+            className="inline-block mt-4 text-sm text-blue-600 hover:underline"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            查看历史记录 →
+          </Link>
         </div>
-      </main>
+      ) : (
+        <div className="space-y-4">
+          {activities.map((activity: ActivityWithCounts) => (
+            <ActivityCard key={activity.id} activity={activity}>
+              {activity.status === "scheduled" || activity.status === "live" ? (
+                <AttendanceButtons
+                  activityId={activity.id}
+                  currentStatus={statuses[activity.id] || null}
+                  onUpdate={handleAttendanceUpdate(activity.id)}
+                  disabled={activity.status !== "scheduled" && activity.status !== "live"}
+                />
+              ) : null}
+            </ActivityCard>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
