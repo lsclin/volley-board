@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { Volleyball, History, Calendar, Trophy, Settings } from "lucide-react";
+import { Volleyball, History, Calendar, Settings } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "看板", icon: Volleyball },
   { href: "/history", label: "历史", icon: History },
-  { href: "/schedule", label: "赛程", icon: Calendar },
-  { href: "/rankings", label: "排名", icon: Trophy },
+  { href: "/schedule", label: "赛事", icon: Calendar },
   { href: "/admin", label: "管理", icon: Settings },
 ];
 

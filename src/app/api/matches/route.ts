@@ -6,6 +6,7 @@ export async function GET() {
       include: {
         teamA: true,
         teamB: true,
+        competition: true,
         sets: { orderBy: { setNo: "asc" } },
       },
       orderBy: { startAt: "desc" },

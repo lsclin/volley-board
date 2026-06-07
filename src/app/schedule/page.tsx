@@ -43,8 +43,8 @@ export default function SchedulePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">比赛赛程</h1>
-        <p className="text-sm text-gray-500 mt-0.5">赛事列表</p>
+        <h1 className="text-xl font-bold text-gray-900">赛事</h1>
+        <p className="text-sm text-gray-500 mt-0.5">所有举办过和正在进行的赛事</p>
       </div>
 
       {isLoading ? (
