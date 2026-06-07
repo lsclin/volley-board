@@ -1,7 +1,15 @@
-import { computeRankings } from "@/lib/ranking";
+import { computeRankings, computeRankingsForCompetition } from "@/lib/ranking";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const url = new URL(request.url);
+    const competitionId = url.searchParams.get("competitionId");
+
+    if (competitionId) {
+      const rankings = await computeRankingsForCompetition(competitionId);
+      return Response.json(rankings);
+    }
+
     const rankings = await computeRankings();
     return Response.json(rankings);
   } catch (error) {

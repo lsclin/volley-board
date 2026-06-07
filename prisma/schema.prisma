@@ -32,21 +32,28 @@ enum MatchStatus {
   cancelled
 }
 
+enum CompetitionStatus {
+  upcoming
+  ongoing
+  finished
+  archived
+}
+
 model Activity {
-  id                  String        @id @default(cuid())
+  id                  String         @id @default(cuid())
   title               String
-  type                ActivityType  @default(pickup)
+  type                ActivityType   @default(pickup)
   startAt             DateTime
   endAt               DateTime
   location            String
   note                String?
   status              ActivityStatus @default(scheduled)
-  visible             Boolean       @default(true)
-  manualExpectedDelta Int           @default(0)
-  manualArrivedDelta  Int           @default(0)
-  peakArrivedCount    Int           @default(0)
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  visible             Boolean        @default(true)
+  manualExpectedDelta Int            @default(0)
+  manualArrivedDelta  Int            @default(0)
+  peakArrivedCount    Int            @default(0)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   attendances         Attendance[]
 }
@@ -72,18 +79,46 @@ model Team {
   matchesB Match[] @relation("TeamB")
 }
 
-model Match {
-  id       String      @id @default(cuid())
-  startAt  DateTime
-  location String
-  teamAId  String
-  teamBId  String
-  status   MatchStatus @default(scheduled)
-  note     String?
+model Competition {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  season      String?
+  status      CompetitionStatus @default(upcoming)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
-  teamA    Team        @relation("TeamA", fields: [teamAId], references: [id])
-  teamB    Team        @relation("TeamB", fields: [teamBId], references: [id])
-  sets     MatchSet[]
+  matches     Match[]
+  files       CompetitionFile[]
+}
+
+model CompetitionFile {
+  id            String      @id @default(cuid())
+  competitionId String
+  name          String
+  url           String
+  type          String      @default("other")
+  createdAt     DateTime    @default(now())
+
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+}
+
+model Match {
+  id            String       @id @default(cuid())
+  competitionId String?
+  startAt       DateTime
+  location      String
+  teamAId       String
+  teamBId       String
+  status        MatchStatus  @default(scheduled)
+  note          String?
+
+  teamA         Team         @relation("TeamA", fields: [teamAId], references: [id])
+  teamB         Team         @relation("TeamB", fields: [teamBId], references: [id])
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
+  sets          MatchSet[]
 }
 
 model MatchSet {

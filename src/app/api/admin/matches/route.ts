@@ -31,16 +31,27 @@ export async function POST(request: Request) {
 
     const match = await prisma.match.create({
       data: {
+        competitionId: data.competitionId || null,
         startAt: new Date(data.startAt),
         location: data.location,
         teamAId: data.teamAId,
         teamBId: data.teamBId,
+        status: data.sets?.length ? "finished" : "scheduled",
         note: data.note ?? null,
+        sets: data.sets?.length
+          ? {
+              create: data.sets.map((set) => ({
+                setNo: set.setNo,
+                scoreA: set.scoreA,
+                scoreB: set.scoreB,
+              })),
+            }
+          : undefined,
       },
       include: {
         teamA: true,
         teamB: true,
-        sets: true,
+        sets: { orderBy: { setNo: "asc" } },
       },
     });
 

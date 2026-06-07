@@ -24,8 +24,13 @@ export async function PATCH(
     if (matchData.location !== undefined) updateData.location = matchData.location;
     if (matchData.teamAId !== undefined) updateData.teamAId = matchData.teamAId;
     if (matchData.teamBId !== undefined) updateData.teamBId = matchData.teamBId;
+    if (matchData.competitionId !== undefined)
+      updateData.competitionId = matchData.competitionId || null;
     if (matchData.status !== undefined) updateData.status = matchData.status;
     if (matchData.note !== undefined) updateData.note = matchData.note;
+    if (sets !== undefined && matchData.status === undefined) {
+      updateData.status = sets.length > 0 ? "finished" : "scheduled";
+    }
 
     await prisma.match.update({
       where: { id },

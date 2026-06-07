@@ -12,6 +12,7 @@ interface Team {
 }
 
 export interface MatchFormData {
+  competitionId: string;
   startAt: string;
   location: string;
   teamAId: string;
@@ -27,6 +28,7 @@ interface MatchFormProps {
   initialData?: Partial<MatchFormData>;
   title: string;
   teams: Team[];
+  competitions: Team[];
 }
 
 function toLocalDatetimeString(date: Date): string {
@@ -40,6 +42,7 @@ function getDefaultMatchForm(): MatchFormData {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   return {
+    competitionId: "",
     startAt: `${today}T19:00`,
     location: "",
     teamAId: "",
@@ -55,6 +58,7 @@ function getInitialMatchForm(
   if (!initialData) return getDefaultMatchForm();
 
   return {
+    competitionId: initialData.competitionId || "",
     startAt: initialData.startAt
       ? toLocalDatetimeString(new Date(initialData.startAt))
       : "",
@@ -73,6 +77,7 @@ export function MatchForm({
   initialData,
   title: formTitle,
   teams,
+  competitions,
 }: MatchFormProps) {
   const [form, setForm] = useState<MatchFormData>(() =>
     getInitialMatchForm(initialData),
@@ -133,6 +138,23 @@ export function MatchForm({
   return (
     <Dialog open={open} onClose={onClose} title={formTitle}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            所属赛事
+          </label>
+          <select
+            value={form.competitionId}
+            onChange={(e) => setForm({ ...form, competitionId: e.target.value })}
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">无（独立比赛）</option>
+            {competitions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <Input
           label="比赛时间"
           type="datetime-local"

@@ -4,12 +4,15 @@ import type {
   Match as PrismaMatch,
   Team as PrismaTeam,
   MatchSet as PrismaMatchSet,
+  Competition as PrismaCompetition,
+  CompetitionFile as PrismaCompetitionFile,
 } from "@prisma/client";
 import {
   ActivityStatus,
   ActivityType,
   AttendanceStatus,
   MatchStatus,
+  CompetitionStatus,
 } from "@prisma/client";
 
 export type Activity = PrismaActivity;
@@ -17,7 +20,9 @@ export type Attendance = PrismaAttendance;
 export type Match = PrismaMatch;
 export type Team = PrismaTeam;
 export type MatchSet = PrismaMatchSet;
-export { ActivityStatus, ActivityType, AttendanceStatus, MatchStatus };
+export type Competition = PrismaCompetition;
+export type CompetitionFile = PrismaCompetitionFile;
+export { ActivityStatus, ActivityType, AttendanceStatus, MatchStatus, CompetitionStatus };
 
 export interface ActivityWithCounts {
   id: string;
@@ -70,4 +75,9 @@ export interface TeamRanking {
   setsLost: number;
   pointsScored: number;
   pointsConceded: number;
+}
+
+export interface CompetitionWithMatches extends Competition {
+  matches: (Match & { teamA: Team; teamB: Team; sets: MatchSet[] })[];
+  files: CompetitionFile[];
 }
