@@ -8,7 +8,7 @@ import { AttendanceButtons } from "@/components/activity/AttendanceButtons";
 import { useActivities } from "@/lib/useActivities";
 import { ActivityWithCounts } from "@/types";
 import { matchStatus } from "@/lib/matchStatus";
-import { CalendarDays, ChevronRight, MapPin, Trophy } from "lucide-react";
+import { CalendarDays, ChevronRight, Info, MapPin, Trophy } from "lucide-react";
 import Link from "next/link";
 
 const ATTENDANCE_CHANGE_EVENT = "volley-attendance-change";
@@ -231,6 +231,18 @@ export default function Home() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+        <div className="flex items-start gap-2">
+          <Info className="mt-0.5 h-4 w-4 flex-none text-blue-600" />
+          <div>
+            <h2 className="text-sm font-semibold text-blue-900">新手提示</h2>
+            <p className="mt-1 text-xs leading-5 text-blue-800">
+              新手可以直接来，不需要提前报名。到场后可以找负责人或老成员一起组队。建议穿运动鞋、带水。
+            </p>
+          </div>
+        </div>
       </section>
 
       <RecentMatchesSection />

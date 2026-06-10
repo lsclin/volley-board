@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { getClientId } from "@/lib/clientId";
-import { User, UserCheck, UserX } from "lucide-react";
+import { User, UserCheck } from "lucide-react";
 
 interface AttendanceButtonsProps {
   activityId: string;
@@ -48,48 +48,39 @@ export function AttendanceButtons({
 
   const isExpected = currentStatus === "expected";
   const isArrived = currentStatus === "arrived";
-  const isCancelled = currentStatus === "cancelled";
 
   return (
-    <div className="flex gap-2">
-      <Button
-        variant={isExpected ? "primary" : "secondary"}
-        size="sm"
-        onClick={() => handleAttendance("expected")}
-        loading={loading === "expected"}
-        disabled={disabled}
-        className="flex-1 flex-col py-3 gap-1 h-auto"
-      >
-        <User className="w-4 h-4" />
-        <span className="text-xs">会来</span>
-        {isExpected ? <span className="text-[10px] opacity-70">已选</span> : null}
-      </Button>
+    <div className="space-y-2">
+      <div className="flex gap-2">
+        <Button
+          variant={isExpected ? "primary" : "secondary"}
+          size="sm"
+          onClick={() => handleAttendance("expected")}
+          loading={loading === "expected"}
+          disabled={disabled}
+          className="flex-1 flex-col py-3 gap-1 h-auto"
+        >
+          <User className="w-4 h-4" />
+          <span className="text-xs">会来</span>
+          {isExpected ? <span className="text-[10px] opacity-70">已选</span> : null}
+        </Button>
 
-      <Button
-        variant={isArrived ? "primary" : "secondary"}
-        size="sm"
-        onClick={() => handleAttendance("arrived")}
-        loading={loading === "arrived"}
-        disabled={disabled}
-        className="flex-1 flex-col py-3 gap-1 h-auto"
-      >
-        <UserCheck className="w-4 h-4" />
-        <span className="text-xs">到了</span>
-        {isArrived ? <span className="text-[10px] opacity-70">已选</span> : null}
-      </Button>
-
-      <Button
-        variant={isCancelled ? "danger" : "ghost"}
-        size="sm"
-        onClick={() => handleAttendance("cancelled")}
-        loading={loading === "cancelled"}
-        disabled={disabled}
-        className="flex-1 flex-col py-3 gap-1 h-auto"
-      >
-        <UserX className="w-4 h-4" />
-        <span className="text-xs">不来</span>
-        {isCancelled ? <span className="text-[10px] opacity-70">已选</span> : null}
-      </Button>
+        <Button
+          variant={isArrived ? "primary" : "secondary"}
+          size="sm"
+          onClick={() => handleAttendance("arrived")}
+          loading={loading === "arrived"}
+          disabled={disabled}
+          className="flex-1 flex-col py-3 gap-1 h-auto"
+        >
+          <UserCheck className="w-4 h-4" />
+          <span className="text-xs">到了</span>
+          {isArrived ? <span className="text-[10px] opacity-70">已选</span> : null}
+        </Button>
+      </div>
+      <p className="text-xs leading-5 text-gray-500">
+        “会来”表示准备来但还没到，“到了”表示已经在场地。无需登录，同一浏览器只记录一次。
+      </p>
     </div>
   );
 }

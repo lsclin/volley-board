@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex bg-gray-50">
+      <body className="min-h-full bg-gray-50">
         <Navbar />
         <main className="flex-1 md:ml-56 pb-20 md:pb-6 px-4 py-4 md:py-6 max-w-2xl mx-auto w-full">
           {children}

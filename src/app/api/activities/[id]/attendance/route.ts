@@ -42,8 +42,9 @@ export async function POST(
       where: { activityId: id },
     });
 
-    const { arrivedCount } = computeCounts(
+    const { expectedCount, arrivedCount } = computeCounts(
       updatedAttendances,
+      activity.manualExpectedDelta,
       activity.manualArrivedDelta,
     );
 
@@ -53,12 +54,6 @@ export async function POST(
         data: { peakArrivedCount: arrivedCount },
       });
     }
-
-    const { expectedCount } = computeCounts(
-      updatedAttendances,
-      activity.manualExpectedDelta,
-      activity.manualArrivedDelta,
-    );
 
     return Response.json({
       success: true,

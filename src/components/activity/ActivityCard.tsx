@@ -20,7 +20,6 @@ export function ActivityCard({
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-      {/* Header */}
       <div className="px-5 pt-5 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
@@ -41,8 +40,32 @@ export function ActivityCard({
         </div>
       </div>
 
-      {/* Info rows */}
       <div className="px-5 pb-3 space-y-2">
+        {isActive ? (
+          <div className="grid grid-cols-2 gap-3 pb-2">
+            <div className="rounded-xl bg-blue-50 px-3 py-3">
+              <div className="flex items-center gap-1.5 text-xs text-blue-700">
+                <Users className="w-3.5 h-3.5" />
+                <span>预计人数</span>
+              </div>
+              <p className="mt-1 text-3xl font-black text-blue-700">
+                {activity.expectedCount}
+                <span className="ml-1 text-sm font-medium text-blue-500">人</span>
+              </p>
+            </div>
+            <div className="rounded-xl bg-green-50 px-3 py-3">
+              <div className="flex items-center gap-1.5 text-xs text-green-700">
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>已到人数</span>
+              </div>
+              <p className="mt-1 text-3xl font-black text-green-700">
+                {activity.arrivedCount}
+                <span className="ml-1 text-sm font-medium text-green-500">人</span>
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex items-center gap-1.5 text-sm text-gray-600">
           <MapPin className="w-4 h-4 flex-shrink-0 text-gray-400" />
           <span>{activity.location}</span>
@@ -55,26 +78,7 @@ export function ActivityCard({
           </div>
         ) : null}
 
-        {isActive ? (
-          <div className="flex items-center gap-4 pt-1">
-            <div className="flex items-center gap-1.5 text-sm">
-              <Users className="w-4 h-4 text-blue-500" />
-              <span className="text-gray-500">预计</span>
-              <span className="font-bold text-blue-600 text-lg">
-                {activity.expectedCount}
-              </span>
-              <span className="text-gray-400 text-xs">人</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-sm">
-              <UserCheck className="w-4 h-4 text-green-500" />
-              <span className="text-gray-500">已到</span>
-              <span className="font-bold text-green-600 text-lg">
-                {activity.arrivedCount}
-              </span>
-              <span className="text-gray-400 text-xs">人</span>
-            </div>
-          </div>
-        ) : (
+        {!isActive ? (
           <div className="flex items-center gap-4 pt-1">
             <div className="flex items-center gap-1.5 text-sm">
               <UserCheck className="w-4 h-4 text-gray-400" />
@@ -85,7 +89,7 @@ export function ActivityCard({
               <span className="text-gray-400 text-xs">人</span>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
       {children ? (
