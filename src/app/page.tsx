@@ -243,9 +243,9 @@ export default function Home() {
         <div className="flex items-start gap-2">
           <Info className="mt-0.5 h-4 w-4 flex-none text-blue-600" />
           <div>
-            <h2 className="text-sm font-semibold text-blue-900">新手提示</h2>
+            <h2 className="text-sm font-semibold text-blue-900">野球提示</h2>
             <p className="mt-1 text-xs leading-5 text-blue-800">
-              新手可以直接来，不需要提前报名。到场后可以找负责人或老成员一起组队。建议穿运动鞋、带水。
+              无固定队伍，到场后线下自行组队即可
             </p>
           </div>
         </div>
