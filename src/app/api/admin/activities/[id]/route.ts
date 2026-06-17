@@ -71,3 +71,35 @@ export async function PATCH(
     return Response.json({ error: "更新活动失败" }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+
+    const existing = await prisma.activity.findUnique({ where: { id } });
+    if (!existing) {
+      return Response.json({ error: "活动不存在" }, { status: 404 });
+    }
+
+    if (existing.status === "live") {
+      return Response.json(
+        { error: "进行中的活动不能删除，请先结束或取消活动" },
+        { status: 400 },
+      );
+    }
+
+    await prisma.activity.delete({ where: { id } });
+
+    return Response.json({ success: true });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return Response.json({ error: "未登录" }, { status: 401 });
+    }
+    console.error("Failed to delete activity:", error);
+    return Response.json({ error: "删除活动失败" }, { status: 500 });
+  }
+}

@@ -132,6 +132,26 @@ export default function AdminPage() {
     mutateActivities();
   };
 
+  const handleActivityDelete = async (activity: ActivityWithCounts) => {
+    if (
+      !confirm(
+        `确定删除活动「${activity.title}」吗？删除后该活动的签到记录也会一起删除。`,
+      )
+    ) {
+      return;
+    }
+
+    const res = await fetch(`/api/admin/activities/${activity.id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      alert(err?.error || "删除活动失败");
+      return;
+    }
+    mutateActivities();
+  };
+
   // Match actions
   const handleCreateMatch = async (data: MatchFormData) => {
     const res = await fetch("/api/admin/matches", {
@@ -173,6 +193,20 @@ export default function AdminPage() {
       setNewTeamName("");
       mutateTeams();
     }
+  };
+
+  const handleTeamDelete = async (team: { id: string; name: string }) => {
+    if (!confirm(`确定删除队伍「${team.name}」吗？`)) return;
+
+    const res = await fetch(`/api/admin/teams/${team.id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      alert(err?.error || "删除队伍失败");
+      return;
+    }
+    mutateTeams();
   };
 
   // Competition actions
@@ -447,6 +481,16 @@ export default function AdminPage() {
                     arrivedCount: a.arrivedCount,
                   }}
                 />
+                {a.status !== "live" ? (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => handleActivityDelete(a)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    删除
+                  </Button>
+                ) : null}
               </div>
             </div>
           ))}
@@ -777,6 +821,14 @@ export default function AdminPage() {
                         <p className="text-sm text-gray-400">{t.note}</p>
                       ) : null}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTeamDelete(t)}
+                      className="p-2 text-gray-400 hover:text-red-500"
+                      aria-label={`删除 ${t.name}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 ),
               )}

@@ -14,6 +14,7 @@ function SectionCard({
   intro,
   steps,
   bullets,
+  notes,
   children,
 }: {
   id: string;
@@ -21,6 +22,7 @@ function SectionCard({
   intro?: string;
   steps?: string[];
   bullets?: string[];
+  notes?: string[];
   children?: React.ReactNode;
 }) {
   return (
@@ -53,6 +55,19 @@ function SectionCard({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {notes ? (
+        <div className="mt-3 rounded-lg border border-yellow-100 bg-yellow-50 px-3 py-2">
+          <p className="text-xs font-semibold text-yellow-800">注意</p>
+          <ul className="mt-1 space-y-1">
+            {notes.map((item) => (
+              <li key={item} className="text-xs leading-5 text-yellow-800">
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
 
       {children}
