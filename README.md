@@ -115,6 +115,12 @@ NODE_ENV="production"
 - Render 免费 Web Service 15 分钟无入站流量会休眠，再次打开通常会有约 1 分钟冷启动等待。
 - Render 免费 Web Service 不适合作为长期文件存储。上传的赛事资料不会保存到 Render 本地文件系统，生产文件存储依赖 Supabase Storage。
 
+Turso / libSQL 说明：
+
+- 生产环境如果使用 `libsql://...` 的 Turso 云数据库，不要在 Render 上运行 `npx prisma migrate deploy`，Prisma CLI 的 SQLite migration 不直接识别 `libsql://` URL。
+- 项目的 `npm run start` 会先运行 `npm run db:ensure-assistant-log`，用 `@libsql/client` 幂等创建管理员助手日志表，然后再启动 Next.js。
+- 因此 Render 的 Start Command 保持 `npm run start` 即可。
+
 ## 赛事资料
 
 赛事资料不上传到服务器本地文件系统。后台支持两种资料来源：
