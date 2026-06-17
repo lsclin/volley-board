@@ -24,7 +24,7 @@ function isWriteAction(draft: AssistantDraft | null) {
 
 function getActionLabel(actionType: string) {
   const labels: Record<string, string> = {
-    generateWechatNotice: "生成微信群公告",
+    generateWechatNotice: "生成QQ群公告",
     queryCompetitionInfo: "查询赛事信息",
     createCompetition: "创建赛事",
     bulkCreateTeams: "批量导入队伍",

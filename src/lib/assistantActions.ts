@@ -118,7 +118,7 @@ async function validateGenerateWechatNotice(action: AssistantAction) {
     blockingReasons: [],
     warnings: [],
     preview: {
-      操作: "生成微信群公告",
+      操作: "生成QQ群公告",
       标题: action.input.title || "群公告",
       公告: action.input.noticeText,
     },
