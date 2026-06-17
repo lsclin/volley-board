@@ -97,5 +97,23 @@ export const updateCompetitionSchema = z.object({
   endDate: z.string().datetime().nullable().optional(),
 });
 
+const externalUrlSchema = z
+  .string()
+  .trim()
+  .url("请输入有效链接")
+  .refine(
+    (url) => url.startsWith("http://") || url.startsWith("https://"),
+    "链接必须以 http:// 或 https:// 开头",
+  );
+
+export const createCompetitionFileSchema = z.object({
+  name: z.string().trim().min(1, "资料名称必填"),
+  url: externalUrlSchema,
+  type: z.enum(["image", "pdf", "spreadsheet", "other"]).optional(),
+});
+
 export type CreateCompetitionInput = z.infer<typeof createCompetitionSchema>;
 export type UpdateCompetitionInput = z.infer<typeof updateCompetitionSchema>;
+export type CreateCompetitionFileInput = z.infer<
+  typeof createCompetitionFileSchema
+>;

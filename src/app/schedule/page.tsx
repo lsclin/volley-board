@@ -98,7 +98,7 @@ export default function SchedulePage() {
                 {comp.files.length > 0 ? (
                   <span className="flex items-center gap-1">
                     <FileText className="w-3.5 h-3.5" />
-                    {comp.files.length} 个文件
+                    {comp.files.length} 份资料
                   </span>
                 ) : null}
               </div>

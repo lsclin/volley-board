@@ -166,7 +166,7 @@ export default function CompetitionDetailPage() {
               规模
             </div>
             <p className="text-sm font-medium text-gray-900">
-              {competition.matches.length} 场比赛 · {competition.files.length} 个文件
+              {competition.matches.length} 场比赛 · {competition.files.length} 份资料
             </p>
           </div>
         </div>

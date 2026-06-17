@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VolleyBoard 排协活动看板
 
-## Getting Started
+面向排协内部使用的轻量活动看板。第一核心是野球实时到场人数，第二核心是赛事、赛程、比分、排名和资料沉淀。
 
-First, run the development server:
+## 本地开发
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+默认本地数据库使用 SQLite 文件：
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+DATABASE_URL="file:./dev.db"
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+本地数据库文件不会提交到 GitHub。
 
-## Learn More
+## 生产部署
 
-To learn more about Next.js, take a look at the following resources:
+生产环境不要依赖 `file:./dev.db`。Render 免费 Web Service 的本地文件系统不适合保存正式数据，重新部署或重启后可能丢失运行时写入的内容。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+当前 Prisma schema 是 SQLite 方向，生产数据库建议优先使用 Turso / libSQL：
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+DATABASE_URL="libsql://your-database.turso.io"
+TURSO_AUTH_TOKEN="your-token"
+ADMIN_PASSWORD="change-this"
+SESSION_SECRET="change-this-to-a-random-string-at-least-32-chars"
+```
 
-## Deploy on Vercel
+Render 常用命令：
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run build
+npm run start
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+如果需要执行已存在的 Prisma migration：
+
+```bash
+npm run db:migrate
+```
+
+## 赛事资料
+
+赛事资料不再上传到服务器本地文件系统。后台只保存资料名称、外部链接和类型。
+
+推荐先把文件放在稳定的外部位置，例如：
+
+- 飞书文档 / 腾讯文档
+- 学校或协会资料库
+- 网盘公开链接
+- GitHub Release 或其他静态文件托管
+
+然后在后台「赛事管理」里添加资料链接。
+
+## 当前功能
+
+- 首页野球活动实时人数：会来、到了
+- 活动状态：未开始、进行中、已结束、已取消
+- 历史活动统计
+- 赛事列表和赛事详情
+- 比赛安排、比分、赛事内排名
+- 赛事资料外部链接
+- 简单管理员后台

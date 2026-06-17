@@ -1,7 +1,14 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { createCompetitionFileSchema } from "@/lib/validators";
+
+function inferFileType(name: string, url: string) {
+  const target = `${name} ${url}`;
+  if (/\.(png|jpg|jpeg|gif|webp)(\?|#|$)/i.test(target)) return "image";
+  if (/\.pdf(\?|#|$)/i.test(target)) return "pdf";
+  if (/\.(xlsx?|csv)(\?|#|$)/i.test(target)) return "spreadsheet";
+  return "other";
+}
 
 export async function POST(
   request: Request,
@@ -16,33 +23,23 @@ export async function POST(
       return Response.json({ error: "赛事不存在" }, { status: 404 });
     }
 
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-
-    if (!file) {
-      return Response.json({ error: "未选择文件" }, { status: 400 });
+    const body = await request.json().catch(() => null);
+    const parsed = createCompetitionFileSchema.safeParse(body);
+    if (!parsed.success) {
+      return Response.json(
+        { error: parsed.error.issues[0]?.message || "资料信息不完整" },
+        { status: 400 },
+      );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\u4e00-\u9fff_-]/g, "_")}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await mkdir(uploadDir, { recursive: true });
-    await writeFile(path.join(uploadDir, safeName), buffer);
-
-    const fileUrl = `/uploads/${safeName}`;
-    const fileType = file.name.match(/\.(png|jpg|jpeg|gif|webp)$/i)
-      ? "image"
-      : file.name.match(/\.(pdf)$/i)
-        ? "pdf"
-        : file.name.match(/\.(xlsx?|csv)$/i)
-          ? "spreadsheet"
-          : "other";
+    const data = parsed.data;
+    const fileType = data.type || inferFileType(data.name, data.url);
 
     const record = await prisma.competitionFile.create({
       data: {
         competitionId: id,
-        name: file.name,
-        url: fileUrl,
+        name: data.name,
+        url: data.url,
         type: fileType,
       },
     });
@@ -52,7 +49,7 @@ export async function POST(
     if (error instanceof Error && error.message === "Unauthorized") {
       return Response.json({ error: "未登录" }, { status: 401 });
     }
-    console.error("Failed to upload file:", error);
-    return Response.json({ error: "文件上传失败" }, { status: 500 });
+    console.error("Failed to save competition file link:", error);
+    return Response.json({ error: "资料保存失败" }, { status: 500 });
   }
 }

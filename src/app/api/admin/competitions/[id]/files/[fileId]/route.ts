@@ -16,15 +16,16 @@ export async function DELETE(
     });
 
     if (!file || file.competitionId !== id) {
-      return Response.json({ error: "文件不存在" }, { status: 404 });
+      return Response.json({ error: "资料不存在" }, { status: 404 });
     }
 
-    // Try to delete the physical file
-    try {
-      const filePath = path.join(process.cwd(), "public", file.url);
-      await unlink(filePath);
-    } catch {
-      // File might not exist on disk, that's ok
+    if (file.url.startsWith("/uploads/")) {
+      try {
+        const filePath = path.join(process.cwd(), "public", file.url);
+        await unlink(filePath);
+      } catch {
+        // Old local files may already be gone after redeploy.
+      }
     }
 
     await prisma.competitionFile.delete({ where: { id: fileId } });
@@ -34,7 +35,7 @@ export async function DELETE(
     if (error instanceof Error && error.message === "Unauthorized") {
       return Response.json({ error: "未登录" }, { status: 401 });
     }
-    console.error("Failed to delete file:", error);
-    return Response.json({ error: "删除文件失败" }, { status: 500 });
+    console.error("Failed to delete competition file link:", error);
+    return Response.json({ error: "删除资料失败" }, { status: 500 });
   }
 }

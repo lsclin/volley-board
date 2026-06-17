@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
+import { Dialog } from "@/components/ui/Dialog";
 import { ActivityForm, ActivityFormData } from "@/components/admin/ActivityForm";
 import { MatchForm, MatchFormData } from "@/components/admin/MatchForm";
 import { CompetitionForm, CompetitionFormData } from "@/components/admin/CompetitionForm";
 import { CopyAnnouncement } from "@/components/admin/CopyAnnouncement";
 import { ActivityWithCounts } from "@/types";
 import { formatDateTime } from "@/lib/time";
-import { Plus, Edit3, Play, Square, XCircle, Upload, FileText, Trash2 } from "lucide-react";
+import { Plus, Edit3, Play, Square, XCircle, LinkIcon, FileText, Trash2 } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -53,6 +54,14 @@ export default function AdminPage() {
   const [newTeamName, setNewTeamName] = useState("");
   const [showCompForm, setShowCompForm] = useState(false);
   const [editingCompetition, setEditingCompetition] = useState<Record<string, unknown> | null>(null);
+  const [linkCompetition, setLinkCompetition] = useState<Record<string, unknown> | null>(null);
+  const [fileForm, setFileForm] = useState({
+    name: "",
+    url: "",
+    type: "other",
+  });
+  const [fileError, setFileError] = useState("");
+  const [savingFile, setSavingFile] = useState(false);
 
   const { data: activities, mutate: mutateActivities } = useSWR(
     "/api/admin/activities",
@@ -203,22 +212,48 @@ export default function AdminPage() {
     mutateCompetitions();
   };
 
-  const handleFileUpload = async (compId: string) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(`/api/admin/competitions/${compId}/files`, {
+  const openFileLinkDialog = (competition: Record<string, unknown>) => {
+    setLinkCompetition(competition);
+    setFileForm({ name: "", url: "", type: "other" });
+    setFileError("");
+  };
+
+  const closeFileLinkDialog = () => {
+    setLinkCompetition(null);
+    setFileError("");
+    setSavingFile(false);
+  };
+
+  const handleFileLinkCreate = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!linkCompetition) return;
+
+    setSavingFile(true);
+    setFileError("");
+
+    const res = await fetch(
+      `/api/admin/competitions/${linkCompetition.id as string}/files`,
+      {
         method: "POST",
-        body: formData,
-      });
-      if (res.ok) mutateCompetitions();
-      else alert("上传失败");
-    };
-    input.click();
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: fileForm.name.trim(),
+          url: fileForm.url.trim(),
+          type: fileForm.type,
+        }),
+      },
+    );
+
+    setSavingFile(false);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      setFileError(err?.error || "保存资料失败");
+      return;
+    }
+
+    mutateCompetitions();
+    closeFileLinkDialog();
   };
 
   const handleFileDelete = async (compId: string, fileId: string) => {
@@ -417,7 +452,7 @@ export default function AdminPage() {
 
               <div className="text-sm text-gray-500 mb-3">
                 比赛 {(c as Record<string, unknown>)._count ? ((c as Record<string, unknown>)._count as Record<string, number>).matches : 0} 场
-                {" · "}文件 {(c as Record<string, unknown>)._count ? ((c as Record<string, unknown>)._count as Record<string, number>).files : 0} 个
+                {" · "}资料 {(c as Record<string, unknown>)._count ? ((c as Record<string, unknown>)._count as Record<string, number>).files : 0} 个
               </div>
 
               {((c.files as CompetitionFileView[] | undefined)?.length ?? 0) > 0 ? (
@@ -450,8 +485,8 @@ export default function AdminPage() {
                 <Button variant="secondary" size="sm" onClick={() => { setEditingCompetition(c); setShowCompForm(true); }}>
                   <Edit3 className="w-3.5 h-3.5 mr-1" />编辑
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleFileUpload(c.id as string)}>
-                  <Upload className="w-3.5 h-3.5 mr-1" />上传文件
+                <Button variant="ghost" size="sm" onClick={() => openFileLinkDialog(c)}>
+                  <LinkIcon className="w-3.5 h-3.5 mr-1" />添加资料
                 </Button>
                 {c.status === "upcoming" ? (
                   <Button variant="ghost" size="sm" onClick={() => handleCompStatusChange(c.id as string, "ongoing")}>
@@ -476,6 +511,76 @@ export default function AdminPage() {
               title={editingCompetition ? "编辑赛事" : "创建赛事"}
             />
           ) : null}
+
+          <Dialog
+            open={Boolean(linkCompetition)}
+            onClose={closeFileLinkDialog}
+            title="添加赛事资料"
+          >
+            <form className="space-y-4" onSubmit={handleFileLinkCreate}>
+              <p className="text-sm leading-6 text-gray-500">
+                将文件放在网盘、在线文档或资料库后，把可访问链接保存到这里。
+              </p>
+              <Input
+                label="资料名称"
+                value={fileForm.name}
+                onChange={(e) =>
+                  setFileForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+                placeholder="例如：竞赛规程 PDF"
+              />
+              <Input
+                label="资料链接"
+                value={fileForm.url}
+                onChange={(e) =>
+                  setFileForm((prev) => ({ ...prev, url: e.target.value }))
+                }
+                placeholder="https://..."
+              />
+              <div className="flex flex-col gap-1.5">
+                <label
+                  htmlFor="competition-file-type"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  类型
+                </label>
+                <select
+                  id="competition-file-type"
+                  value={fileForm.type}
+                  onChange={(e) =>
+                    setFileForm((prev) => ({ ...prev, type: e.target.value }))
+                  }
+                  className="min-h-[44px] rounded-lg border border-gray-300 px-3 py-2.5 text-base text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="other">其他</option>
+                  <option value="pdf">PDF</option>
+                  <option value="spreadsheet">表格</option>
+                  <option value="image">图片</option>
+                </select>
+              </div>
+              {fileError ? (
+                <p className="text-sm text-red-600">{fileError}</p>
+              ) : null}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={closeFileLinkDialog}
+                >
+                  取消
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  loading={savingFile}
+                  disabled={!fileForm.name.trim() || !fileForm.url.trim()}
+                >
+                  保存资料
+                </Button>
+              </div>
+            </form>
+          </Dialog>
         </div>
       ) : null}
 
