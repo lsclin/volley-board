@@ -22,6 +22,7 @@ export function AttendanceButtons({
 
   const handleAttendance = async (status: string) => {
     if (loading || disabled) return;
+    const nextStatus = currentStatus === status ? "cancelled" : status;
     setLoading(status);
 
     try {
@@ -29,7 +30,7 @@ export function AttendanceButtons({
       const res = await fetch(`/api/activities/${activityId}/attendance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId, status }),
+        body: JSON.stringify({ clientId, status: nextStatus }),
       });
 
       if (!res.ok) {
@@ -38,7 +39,7 @@ export function AttendanceButtons({
         return;
       }
 
-      onUpdate(status);
+      onUpdate(nextStatus);
     } catch {
       alert("网络错误，请重试");
     } finally {
@@ -62,7 +63,9 @@ export function AttendanceButtons({
         >
           <User className="w-4 h-4" />
           <span className="text-xs">会来</span>
-          {isExpected ? <span className="text-[10px] opacity-70">已选</span> : null}
+          {isExpected ? (
+            <span className="text-[10px] opacity-70">再点取消</span>
+          ) : null}
         </Button>
 
         <Button
@@ -75,11 +78,13 @@ export function AttendanceButtons({
         >
           <UserCheck className="w-4 h-4" />
           <span className="text-xs">到了</span>
-          {isArrived ? <span className="text-[10px] opacity-70">已选</span> : null}
+          {isArrived ? (
+            <span className="text-[10px] opacity-70">再点取消</span>
+          ) : null}
         </Button>
       </div>
       <p className="text-xs leading-5 text-gray-500">
-        “会来”表示准备来但还没到，“到了”表示已经在场地。无需登录，同一浏览器只记录一次。
+        “会来”表示准备来但还没到，“到了”表示已经在场地。无需登录，同一浏览器只记录一次，再次点击可取消。
       </p>
     </div>
   );

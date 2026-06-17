@@ -12,7 +12,7 @@ VolleyBoard 是面向校排协内部使用的轻量活动看板，不是传统�
 - 历史活动统计
 - 赛事列表和赛事详情
 - 比赛安排、比分、赛事内排名
-- 赛事资料外部链接
+- 赛事资料外部链接和云存储文件上传
 - 简单管理员后台
 - 微信群公告复制
 
@@ -42,6 +42,9 @@ DATABASE_URL="libsql://your-database.turso.io"
 TURSO_AUTH_TOKEN="your-turso-token"
 ADMIN_PASSWORD="your-admin-password"
 SESSION_SECRET="your-random-string-at-least-32-chars"
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
+SUPABASE_STORAGE_BUCKET="competition-files"
 NODE_ENV="production"
 ```
 
@@ -51,6 +54,9 @@ NODE_ENV="production"
 - `TURSO_AUTH_TOKEN`：使用 Turso / libSQL 云数据库时必填。
 - `ADMIN_PASSWORD`：管理员后台登录密码。
 - `SESSION_SECRET`：后台登录会话加密密钥，至少 32 个字符。
+- `SUPABASE_URL`：Supabase 项目地址，用于赛事资料文件上传。
+- `SUPABASE_SERVICE_ROLE_KEY`：Supabase 服务端密钥，只能放在 Render 环境变量中，不要暴露到前端或提交到 GitHub。
+- `SUPABASE_STORAGE_BUCKET`：赛事资料文件所在的 Supabase Storage bucket，建议使用公开 bucket，方便公开赛事详情页直接访问文件 URL。
 - `NODE_ENV`：Render 通常会自动设置为 `production`，也可以显式配置。
 
 ## 数据库
@@ -85,6 +91,9 @@ DATABASE_URL="libsql://your-database.turso.io"
 TURSO_AUTH_TOKEN="your-turso-token"
 ADMIN_PASSWORD="your-admin-password"
 SESSION_SECRET="your-random-string-at-least-32-chars"
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
+SUPABASE_STORAGE_BUCKET="competition-files"
 NODE_ENV="production"
 ```
 
@@ -94,13 +103,26 @@ NODE_ENV="production"
 
 - 不要在生产使用 Render 本地 SQLite 文件保存长期数据。
 - Render 免费 Web Service 15 分钟无入站流量会休眠，再次打开通常会有约 1 分钟冷启动等待。
-- Render 免费 Web Service 不适合作为长期文件存储。
+- Render 免费 Web Service 不适合作为长期文件存储。上传的赛事资料不会保存到 Render 本地文件系统，生产文件存储依赖 Supabase Storage。
 
 ## 赛事资料
 
-赛事资料不上传到服务器本地文件系统。后台只保存资料名称、外部链接和类型。
+赛事资料不上传到服务器本地文件系统。后台支持两种资料来源：
 
-推荐先把文件放在稳定的外部位置，例如：
+- 添加资料链接：保存网盘、在线文档或其他公开资料链接。
+- 上传本地文件：文件上传到 Supabase Storage，数据库只保存资料名称、文件 URL、类型和所属赛事。
+
+Render 的本地文件系统是临时的，服务重启或重新部署后不适合保存上传文件。因此生产环境要在 Render 环境变量中配置：
+
+```env
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
+SUPABASE_STORAGE_BUCKET="competition-files"
+```
+
+Supabase Storage bucket 建议设置为公开 bucket，确保公开赛事详情页可以直接打开资料 URL。删除上传文件时，后台会根据 Supabase 公开 URL 尝试同步删除云存储对象；外部链接资料只删除数据库记录。
+
+如果不想配置云存储，也可以继续使用外部链接。推荐把文件放在稳定的外部位置，例如：
 
 - 飞书文档 / 腾讯文档
 - 学校或协会资料库
@@ -118,7 +140,7 @@ NODE_ENV="production"
 - 活动结束后点击结束，取消时点击取消
 - 创建赛事、队伍、比赛
 - 录入比赛比分和局分
-- 在赛事中添加资料链接
+- 在赛事中添加资料链接或上传本地资料文件
 - 复制微信群公告
 
 后台写操作都需要管理员登录。

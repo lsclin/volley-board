@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
-import { unlink } from "fs/promises";
-import path from "path";
+import { deleteCompetitionFileFromStorage } from "@/lib/fileStorage";
 
 export async function DELETE(
   _request: Request,
@@ -19,13 +18,10 @@ export async function DELETE(
       return Response.json({ error: "资料不存在" }, { status: 404 });
     }
 
-    if (file.url.startsWith("/uploads/")) {
-      try {
-        const filePath = path.join(process.cwd(), "public", file.url);
-        await unlink(filePath);
-      } catch {
-        // Old local files may already be gone after redeploy.
-      }
+    try {
+      await deleteCompetitionFileFromStorage(file.url);
+    } catch (error) {
+      console.error("Failed to delete uploaded competition file:", error);
     }
 
     await prisma.competitionFile.delete({ where: { id: fileId } });

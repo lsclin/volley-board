@@ -12,7 +12,17 @@ import { CompetitionForm, CompetitionFormData } from "@/components/admin/Competi
 import { CopyAnnouncement } from "@/components/admin/CopyAnnouncement";
 import { ActivityWithCounts } from "@/types";
 import { formatDateTime } from "@/lib/time";
-import { Plus, Edit3, Play, Square, XCircle, LinkIcon, FileText, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Edit3,
+  Play,
+  Square,
+  XCircle,
+  LinkIcon,
+  FileText,
+  Trash2,
+  Upload,
+} from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -62,6 +72,7 @@ export default function AdminPage() {
   });
   const [fileError, setFileError] = useState("");
   const [savingFile, setSavingFile] = useState(false);
+  const [uploadingCompetitionId, setUploadingCompetitionId] = useState<string | null>(null);
 
   const { data: activities, mutate: mutateActivities } = useSWR(
     "/api/admin/activities",
@@ -254,6 +265,43 @@ export default function AdminPage() {
 
     mutateCompetitions();
     closeFileLinkDialog();
+  };
+
+  const handleFileUpload = (competitionId: string) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*,.pdf,.xlsx,.xls,.csv,.doc,.docx";
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      setUploadingCompetitionId(competitionId);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch(`/api/admin/competitions/${competitionId}/files`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          alert(err?.error || "上传资料失败");
+          return;
+        }
+
+        mutateCompetitions();
+      } catch {
+        alert("上传失败，请检查网络后重试");
+      } finally {
+        setUploadingCompetitionId(null);
+      }
+    };
+
+    input.click();
   };
 
   const handleFileDelete = async (compId: string, fileId: string) => {
@@ -486,7 +534,15 @@ export default function AdminPage() {
                   <Edit3 className="w-3.5 h-3.5 mr-1" />编辑
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => openFileLinkDialog(c)}>
-                  <LinkIcon className="w-3.5 h-3.5 mr-1" />添加资料
+                  <LinkIcon className="w-3.5 h-3.5 mr-1" />添加资料链接
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleFileUpload(c.id as string)}
+                  loading={uploadingCompetitionId === c.id}
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1" />上传本地文件
                 </Button>
                 {c.status === "upcoming" ? (
                   <Button variant="ghost" size="sm" onClick={() => handleCompStatusChange(c.id as string, "ongoing")}>
@@ -515,7 +571,7 @@ export default function AdminPage() {
           <Dialog
             open={Boolean(linkCompetition)}
             onClose={closeFileLinkDialog}
-            title="添加赛事资料"
+            title="添加资料链接"
           >
             <form className="space-y-4" onSubmit={handleFileLinkCreate}>
               <p className="text-sm leading-6 text-gray-500">

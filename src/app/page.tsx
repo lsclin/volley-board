@@ -34,7 +34,9 @@ function readStoredStatuses(): Record<string, string> {
     const key = localStorage.key(i);
     if (!key?.startsWith("attendance_")) continue;
     const status = localStorage.getItem(key);
-    if (status) statuses[key.replace("attendance_", "")] = status;
+    if (status && status !== "cancelled") {
+      statuses[key.replace("attendance_", "")] = status;
+    }
   }
   return statuses;
 }
@@ -57,7 +59,11 @@ function subscribeToAttendanceChanges(callback: () => void): () => void {
 
 function setStoredStatus(activityId: string, status: string) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(`attendance_${activityId}`, status);
+  if (status === "cancelled") {
+    localStorage.removeItem(`attendance_${activityId}`);
+  } else {
+    localStorage.setItem(`attendance_${activityId}`, status);
+  }
   window.dispatchEvent(new Event(ATTENDANCE_CHANGE_EVENT));
 }
 
