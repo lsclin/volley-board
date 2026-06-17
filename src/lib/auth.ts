@@ -5,22 +5,35 @@ export interface SessionData {
   isAdmin?: boolean;
 }
 
-const sessionOptions: SessionOptions = {
-  password: process.env.SESSION_SECRET || "volley-board-session-default-32-chars",
-  cookieName: "volley_admin_session",
-  ttl: 7200,
-  cookieOptions: {
-    secure: process.env.NODE_ENV === "production",
-    httpOnly: true,
-    sameSite: "strict",
-    path: "/",
-  },
-};
+function getSessionPassword() {
+  const password = process.env.SESSION_SECRET;
+  if (password && password.length >= 32) return password;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET must be set to at least 32 characters");
+  }
+
+  return "volley-board-session-default-32-chars";
+}
+
+function getSessionOptions(): SessionOptions {
+  return {
+    password: getSessionPassword(),
+    cookieName: "volley_admin_session",
+    ttl: 7200,
+    cookieOptions: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      sameSite: "strict",
+      path: "/",
+    },
+  };
+}
 
 export async function getSession() {
   const session = await getIronSession<SessionData>(
     await cookies(),
-    sessionOptions,
+    getSessionOptions(),
   );
   return session;
 }
