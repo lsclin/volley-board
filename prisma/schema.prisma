@@ -71,12 +71,14 @@ model Attendance {
 }
 
 model Team {
-  id       String  @id @default(cuid())
-  name     String
-  note     String?
+  id            String       @id @default(cuid())
+  competitionId String?
+  name          String
+  note          String?
 
-  matchesA Match[] @relation("TeamA")
-  matchesB Match[] @relation("TeamB")
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  matchesA      Match[]      @relation("TeamA")
+  matchesB      Match[]      @relation("TeamB")
 }
 
 model Competition {
@@ -92,6 +94,7 @@ model Competition {
 
   matches     Match[]
   files       CompetitionFile[]
+  teams       Team[]
 }
 
 model CompetitionFile {
@@ -115,8 +118,8 @@ model Match {
   status        MatchStatus  @default(scheduled)
   note          String?
 
-  teamA         Team         @relation("TeamA", fields: [teamAId], references: [id])
-  teamB         Team         @relation("TeamB", fields: [teamBId], references: [id])
+  teamA         Team         @relation("TeamA", fields: [teamAId], references: [id], onDelete: Cascade)
+  teamB         Team         @relation("TeamB", fields: [teamBId], references: [id], onDelete: Cascade)
   competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
   sets          MatchSet[]
 }

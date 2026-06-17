@@ -29,7 +29,7 @@ export const updateActivitySchema = z.object({
 });
 
 export const createMatchSchema = z.object({
-  competitionId: z.string().nullable().optional(),
+  competitionId: z.string().min(1, "请选择所属赛事"),
   startAt: z.string().datetime(),
   location: z.string().min(1, "Location is required"),
   teamAId: z.string().min(1),
@@ -66,7 +66,8 @@ export const updateMatchSchema = z.object({
 });
 
 export const createTeamSchema = z.object({
-  name: z.string().min(1, "Team name is required"),
+  competitionId: z.string().min(1, "请选择所属赛事"),
+  name: z.string().trim().min(1, "Team name is required"),
   note: z.string().nullable().optional(),
 });
 

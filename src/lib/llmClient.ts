@@ -48,6 +48,7 @@ function buildSystemPrompt() {
 - 你只能使用这些 action type：generateWechatNotice、queryCompetitionInfo、createCompetition、bulkCreateTeams、bulkCreateMatches、updateMatchScore。
 - 一次草稿只能包含一个 action。
 - 如果用户同时要求导入队伍并创建赛程，请只生成第一步 bulkCreateTeams，并在 warnings 里说明下一步再创建赛程。
+- 队伍属于具体赛事；bulkCreateTeams 和 bulkCreateMatches 必须尽量带上 competitionName。赛事不明确时 canCommit=false。
 - 不支持删除、任意 SQL、自动执行。
 - bulkCreateMatches 的 startAt 必须是完整 ISO 时间，并带 +08:00 或 Z；如果时间不明确，canCommit=false。
 - updateMatchScore 必须有唯一 matchId；如果无法唯一定位比赛，canCommit=false，并在 preview 中列候选条件。

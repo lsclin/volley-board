@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import useSWR from "swr";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -35,6 +35,23 @@ type CompetitionFileView = {
   type: string;
 };
 
+type AdminCompetition = {
+  id: string;
+  name: string;
+};
+
+type AdminTeam = {
+  id: string;
+  competitionId: string | null;
+  name: string;
+  note: string | null;
+  competition?: AdminCompetition | null;
+  _count?: {
+    matchesA: number;
+    matchesB: number;
+  };
+};
+
 function toFormData(a: ActivityWithCounts): Partial<ActivityFormData> {
   const d = new Date(a.startAt);
   const localStart = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
@@ -62,6 +79,7 @@ export default function AdminPage() {
   const [showMatchForm, setShowMatchForm] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Record<string, unknown> | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
+  const [selectedTeamCompetitionId, setSelectedTeamCompetitionId] = useState("");
   const [showCompForm, setShowCompForm] = useState(false);
   const [editingCompetition, setEditingCompetition] = useState<Record<string, unknown> | null>(null);
   const [linkCompetition, setLinkCompetition] = useState<Record<string, unknown> | null>(null);
@@ -90,6 +108,33 @@ export default function AdminPage() {
     "/api/admin/competitions",
     fetcher,
   );
+
+  const competitionOptions = useMemo(
+    () => ((competitions as AdminCompetition[] | undefined) ?? []),
+    [competitions],
+  );
+  const teamList = (teams as AdminTeam[] | undefined) ?? [];
+  const effectiveTeamCompetitionId =
+    selectedTeamCompetitionId &&
+    competitionOptions.some(
+      (competition) => competition.id === selectedTeamCompetitionId,
+    )
+      ? selectedTeamCompetitionId
+      : competitionOptions[0]?.id || "";
+  const selectedCompetitionTeams = teamList.filter(
+    (team) => team.competitionId === effectiveTeamCompetitionId,
+  );
+  const hasMatchCreatableTeams = competitionOptions.some(
+    (competition) =>
+      teamList.filter((team) => team.competitionId === competition.id).length >= 2,
+  );
+  const matchDefaultCompetitionId =
+    competitionOptions.find(
+      (competition) =>
+        teamList.filter((team) => team.competitionId === competition.id).length >= 2,
+    )?.id ||
+    competitionOptions[0]?.id ||
+    "";
 
   // Activity actions
   const handleCreateActivity = async (data: ActivityFormData) => {
@@ -183,20 +228,33 @@ export default function AdminPage() {
 
   // Team actions
   const handleCreateTeam = async () => {
-    if (!newTeamName.trim()) return;
+    if (!newTeamName.trim() || !effectiveTeamCompetitionId) return;
     const res = await fetch("/api/admin/teams", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newTeamName.trim() }),
+      body: JSON.stringify({
+        competitionId: effectiveTeamCompetitionId,
+        name: newTeamName.trim(),
+      }),
     });
     if (res.ok) {
       setNewTeamName("");
       mutateTeams();
+      mutateCompetitions();
+      return;
     }
+    const err = await res.json().catch(() => null);
+    alert(err?.error || "创建队伍失败");
   };
 
-  const handleTeamDelete = async (team: { id: string; name: string }) => {
-    if (!confirm(`确定删除队伍「${team.name}」吗？`)) return;
+  const handleTeamDelete = async (team: AdminTeam) => {
+    const matchCount =
+      (team._count?.matchesA ?? 0) + (team._count?.matchesB ?? 0);
+    const detail =
+      matchCount > 0
+        ? `该队伍关联的 ${matchCount} 场比赛和对应局分也会一起删除。`
+        : "该队伍当前没有关联比赛。";
+    if (!confirm(`确定删除队伍「${team.name}」吗？${detail}`)) return;
 
     const res = await fetch(`/api/admin/teams/${team.id}`, {
       method: "DELETE",
@@ -206,7 +264,13 @@ export default function AdminPage() {
       alert(err?.error || "删除队伍失败");
       return;
     }
+    const result = await res.json().catch(() => null);
+    if (result?.message && result?.deletedMatchCount > 0) {
+      alert(result.message);
+    }
     mutateTeams();
+    mutateMatches();
+    mutateCompetitions();
   };
 
   // Competition actions
@@ -694,16 +758,16 @@ export default function AdminPage() {
             <Button
               size="sm"
               onClick={() => setShowMatchForm(true)}
-              disabled={!teams || teams.length < 2}
+              disabled={!hasMatchCreatableTeams}
             >
               <Plus className="w-4 h-4 mr-1" />
               创建比赛
             </Button>
           </div>
 
-          {!teams || teams.length < 2 ? (
+          {!hasMatchCreatableTeams ? (
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
-              请先在「队伍管理」中创建至少两个队伍
+              请先在「队伍管理」中选择赛事，并为该赛事创建至少两个队伍。
             </div>
           ) : null}
 
@@ -719,8 +783,11 @@ export default function AdminPage() {
                     {(m.teamB as Record<string, string>)?.name}
                   </h3>
                   <p className="text-sm text-gray-500">
-                    {formatDateTime(new Date(m.startAt as string))} ·{" "}
-                    {m.location as string}
+                  {formatDateTime(new Date(m.startAt as string))} ·{" "}
+                  {m.location as string}
+                  {(m.competition as Record<string, string> | null)?.name
+                    ? ` · ${(m.competition as Record<string, string>).name}`
+                    : ""}
                   </p>
                 </div>
                 <Badge
@@ -784,8 +851,9 @@ export default function AdminPage() {
               }
               initialData={editingMatch || undefined}
               title={editingMatch ? "编辑比赛" : "创建比赛"}
-              teams={(teams as Array<{ id: string; name: string }>) || []}
-              competitions={(competitions as Array<{ id: string; name: string }>) || []}
+              teams={teamList}
+              competitions={competitionOptions}
+              defaultCompetitionId={matchDefaultCompetitionId}
             />
           ) : null}
         </div>
@@ -794,6 +862,33 @@ export default function AdminPage() {
       {/* Teams Tab */}
       {tab === "teams" ? (
         <div className="space-y-3">
+          <div className="space-y-2">
+            <label
+              htmlFor="team-competition"
+              className="text-sm font-medium text-gray-700"
+            >
+              所属赛事
+            </label>
+            <select
+              id="team-competition"
+              value={effectiveTeamCompetitionId}
+              onChange={(e) => setSelectedTeamCompetitionId(e.target.value)}
+              className="w-full min-h-[44px] rounded-lg border border-gray-300 px-3 py-2.5 text-base text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {competitionOptions.length === 0 ? (
+                <option value="">请先创建赛事</option>
+              ) : null}
+              {competitionOptions.map((competition) => (
+                <option key={competition.id} value={competition.id}>
+                  {competition.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs leading-5 text-gray-500">
+              队伍按赛事管理。每次重新分队时，请先选择对应赛事再添加队伍。
+            </p>
+          </div>
+
           <div className="flex gap-2">
             <Input
               value={newTeamName}
@@ -803,20 +898,30 @@ export default function AdminPage() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleCreateTeam();
               }}
+              disabled={!effectiveTeamCompetitionId}
             />
-            <Button onClick={handleCreateTeam} disabled={!newTeamName.trim()}>
+            <Button
+              onClick={handleCreateTeam}
+              disabled={!newTeamName.trim() || !effectiveTeamCompetitionId}
+            >
               <Plus className="w-4 h-4 mr-1" />
               添加
             </Button>
           </div>
 
-          {teams && teams.length > 0 ? (
+          {selectedCompetitionTeams.length > 0 ? (
             <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {(teams as Array<{ id: string; name: string; note: string | null }>).map(
-                (t) => (
+              {selectedCompetitionTeams.map(
+                (t) => {
+                  const matchCount =
+                    (t._count?.matchesA ?? 0) + (t._count?.matchesB ?? 0);
+                  return (
                   <div key={t.id} className="p-4 flex items-center justify-between">
                     <div>
                       <p className="font-medium text-gray-900">{t.name}</p>
+                      <p className="text-sm text-gray-400">
+                        关联比赛 {matchCount} 场
+                      </p>
                       {t.note ? (
                         <p className="text-sm text-gray-400">{t.note}</p>
                       ) : null}
@@ -830,12 +935,15 @@ export default function AdminPage() {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                ),
+                  );
+                },
               )}
             </div>
           ) : (
             <div className="text-center py-12 text-gray-500 text-sm">
-              暂无队伍，请添加
+              {effectiveTeamCompetitionId
+                ? "该赛事暂无队伍，请添加"
+                : "请先创建赛事，再添加队伍"}
             </div>
           )}
         </div>

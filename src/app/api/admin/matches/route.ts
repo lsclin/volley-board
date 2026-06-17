@@ -7,6 +7,7 @@ export async function GET() {
     await requireAdmin();
     const matches = await prisma.match.findMany({
       include: {
+        competition: true,
         teamA: true,
         teamB: true,
         sets: { orderBy: { setNo: "asc" } },
@@ -29,9 +30,34 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = createMatchSchema.parse(body);
 
+    const [competition, teamA, teamB] = await Promise.all([
+      prisma.competition.findUnique({ where: { id: data.competitionId } }),
+      prisma.team.findUnique({ where: { id: data.teamAId } }),
+      prisma.team.findUnique({ where: { id: data.teamBId } }),
+    ]);
+
+    if (!competition) {
+      return Response.json({ error: "赛事不存在" }, { status: 404 });
+    }
+    if (!teamA || !teamB) {
+      return Response.json({ error: "队伍不存在" }, { status: 404 });
+    }
+    if (teamA.id === teamB.id) {
+      return Response.json({ error: "比赛双方不能是同一队" }, { status: 400 });
+    }
+    if (
+      teamA.competitionId !== data.competitionId ||
+      teamB.competitionId !== data.competitionId
+    ) {
+      return Response.json(
+        { error: "比赛队伍必须属于所选赛事" },
+        { status: 400 },
+      );
+    }
+
     const match = await prisma.match.create({
       data: {
-        competitionId: data.competitionId || null,
+        competitionId: data.competitionId,
         startAt: new Date(data.startAt),
         location: data.location,
         teamAId: data.teamAId,
@@ -49,6 +75,7 @@ export async function POST(request: Request) {
           : undefined,
       },
       include: {
+        competition: true,
         teamA: true,
         teamB: true,
         sets: { orderBy: { setNo: "asc" } },

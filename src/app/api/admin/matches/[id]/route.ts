@@ -18,6 +18,45 @@ export async function PATCH(
     }
 
     const { sets, ...matchData } = data;
+    const nextCompetitionId =
+      matchData.competitionId !== undefined
+        ? matchData.competitionId || null
+        : existing.competitionId;
+    const nextTeamAId = matchData.teamAId ?? existing.teamAId;
+    const nextTeamBId = matchData.teamBId ?? existing.teamBId;
+    const shouldValidateTeamScope =
+      matchData.competitionId !== undefined ||
+      matchData.teamAId !== undefined ||
+      matchData.teamBId !== undefined;
+
+    if (nextTeamAId === nextTeamBId) {
+      return Response.json({ error: "比赛双方不能是同一队" }, { status: 400 });
+    }
+
+    if (nextCompetitionId && shouldValidateTeamScope) {
+      const [competition, teamA, teamB] = await Promise.all([
+        prisma.competition.findUnique({ where: { id: nextCompetitionId } }),
+        prisma.team.findUnique({ where: { id: nextTeamAId } }),
+        prisma.team.findUnique({ where: { id: nextTeamBId } }),
+      ]);
+
+      if (!competition) {
+        return Response.json({ error: "赛事不存在" }, { status: 404 });
+      }
+      if (!teamA || !teamB) {
+        return Response.json({ error: "队伍不存在" }, { status: 404 });
+      }
+      if (
+        teamA.competitionId !== nextCompetitionId ||
+        teamB.competitionId !== nextCompetitionId
+      ) {
+        return Response.json(
+          { error: "比赛队伍必须属于所选赛事" },
+          { status: 400 },
+        );
+      }
+    }
+
     const updateData: Record<string, unknown> = {};
 
     if (matchData.startAt !== undefined) updateData.startAt = new Date(matchData.startAt);
@@ -36,6 +75,7 @@ export async function PATCH(
       where: { id },
       data: updateData,
       include: {
+        competition: true,
         teamA: true,
         teamB: true,
         sets: { orderBy: { setNo: "asc" } },
@@ -59,6 +99,7 @@ export async function PATCH(
     const updated = await prisma.match.findUnique({
       where: { id },
       include: {
+        competition: true,
         teamA: true,
         teamB: true,
         sets: { orderBy: { setNo: "asc" } },

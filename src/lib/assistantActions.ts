@@ -89,21 +89,28 @@ async function resolveCompetitionByName(
   return { competition: candidates[0], blockingReasons: [] as string[] };
 }
 
-async function resolveTeamByName(db: DbClient, teamName: string) {
+async function resolveTeamByNameInCompetition(
+  db: DbClient,
+  teamName: string,
+  competitionId: string,
+) {
   const name = normalizeName(teamName);
   const teams = await db.team.findMany({
-    where: { name: { contains: name } },
+    where: {
+      competitionId,
+      name: { contains: name },
+    },
     orderBy: { name: "asc" },
   });
   const exact = teams.filter((team) => nameKey(team.name) === nameKey(name));
   const candidates = exact.length > 0 ? exact : teams;
 
   if (candidates.length === 0) {
-    return { team: null, blockingReasons: [`队伍不存在：${name}`] };
+    return { team: null, blockingReasons: [`该赛事下队伍不存在：${name}`] };
   }
 
   if (candidates.length > 1) {
-    return { team: null, blockingReasons: [`队伍不唯一：${name}`] };
+    return { team: null, blockingReasons: [`该赛事下队伍不唯一：${name}`] };
   }
 
   return { team: candidates[0], blockingReasons: [] as string[] };
@@ -152,7 +159,15 @@ async function validateQueryCompetitionInfo(
   });
 
   const teams = action.input.includeTeams
-    ? await db.team.findMany({ orderBy: { name: "asc" }, take: 80 })
+    ? await db.team.findMany({
+        where:
+          competitions.length === 1
+            ? { competitionId: competitions[0].id }
+            : undefined,
+        include: { competition: { select: { id: true, name: true } } },
+        orderBy: { name: "asc" },
+        take: 80,
+      })
     : [];
 
   return {
@@ -176,7 +191,11 @@ async function validateQueryCompetitionInfo(
             }))
           : undefined,
       })),
-      队伍: teams.map((team) => ({ id: team.id, name: team.name })),
+      队伍: teams.map((team) => ({
+        id: team.id,
+        name: team.name,
+        competition: team.competition?.name ?? null,
+      })),
     },
   };
 }
@@ -240,15 +259,24 @@ async function validateBulkCreateTeams(
   const duplicateInputNames = names.filter(
     (name, index) => names.findIndex((item) => nameKey(item) === nameKey(name)) !== index,
   );
+  const { competition, blockingReasons: competitionBlocks } =
+    await resolveCompetitionByName(db, action.input.competitionName);
+  blockingReasons.push(...competitionBlocks);
 
   if (names.length === 0) blockingReasons.push("队伍列表为空");
+  if (!action.input.competitionName) blockingReasons.push("请先指定要导入队伍的赛事");
   if (duplicateInputNames.length > 0) {
     blockingReasons.push(
       `队伍列表存在重复：${uniqueStrings(duplicateInputNames).join("、")}`,
     );
   }
 
-  const existingTeams = await db.team.findMany({ orderBy: { name: "asc" } });
+  const existingTeams = competition
+    ? await db.team.findMany({
+        where: { competitionId: competition.id },
+        orderBy: { name: "asc" },
+      })
+    : [];
   const existingNameKeys = new Set(existingTeams.map((team) => nameKey(team.name)));
   const existingNames = names.filter((name) => existingNameKeys.has(nameKey(name)));
   const creatableNames = names.filter((name) => !existingNameKeys.has(nameKey(name)));
@@ -265,7 +293,7 @@ async function validateBulkCreateTeams(
     warnings,
     preview: {
       操作: "批量导入队伍",
-      赛事提示: action.input.competitionName || "队伍当前为全局队伍",
+      所属赛事: competition?.name ?? action.input.competitionName ?? null,
       将创建: uniqueStrings(creatableNames),
       将跳过: uniqueStrings(existingNames),
     },
@@ -286,6 +314,9 @@ async function validateBulkCreateMatches(
   const { competition, blockingReasons: competitionBlocks } =
     await resolveCompetitionByName(db, action.input.competitionName);
   blockingReasons.push(...competitionBlocks);
+  if (!action.input.competitionName) {
+    blockingReasons.push("请先指定赛事，再创建赛程");
+  }
 
   for (const [index, match] of action.input.matches.entries()) {
     const startAt = parseDate(match.startAt);
@@ -295,8 +326,12 @@ async function validateBulkCreateMatches(
       );
     }
 
-    const teamAResult = await resolveTeamByName(db, match.teamAName);
-    const teamBResult = await resolveTeamByName(db, match.teamBName);
+    const teamAResult = competition
+      ? await resolveTeamByNameInCompetition(db, match.teamAName, competition.id)
+      : { team: null, blockingReasons: [] as string[] };
+    const teamBResult = competition
+      ? await resolveTeamByNameInCompetition(db, match.teamBName, competition.id)
+      : { team: null, blockingReasons: [] as string[] };
     blockingReasons.push(...teamAResult.blockingReasons, ...teamBResult.blockingReasons);
 
     const teamA = teamAResult.team;
@@ -330,10 +365,6 @@ async function validateBulkCreateMatches(
       teamB: teamB?.name ?? match.teamBName,
       note: match.note || null,
     });
-  }
-
-  if (!competition && !action.input.competitionName) {
-    warnings.push("未指定所属赛事，赛程将作为独立比赛创建");
   }
 
   return {
@@ -528,17 +559,35 @@ async function bulkCreateTeams(db: DbClient, draft: AssistantDraft) {
     throw new AssistantActionError("操作类型不匹配");
   }
 
-  const existingTeams = await db.team.findMany({ orderBy: { name: "asc" } });
+  const { competition } = await resolveCompetitionByName(
+    db,
+    draft.action.input.competitionName,
+  );
+  if (!competition) {
+    throw new AssistantActionError("提交前未能定位赛事，请重新解析");
+  }
+
+  const existingTeams = await db.team.findMany({
+    where: { competitionId: competition.id },
+    orderBy: { name: "asc" },
+  });
   const existingNameKeys = new Set(existingTeams.map((team) => nameKey(team.name)));
   const names = uniqueStrings(draft.action.input.teamNames.map(normalizeName).filter(Boolean))
     .filter((name) => !existingNameKeys.has(nameKey(name)));
 
   const created = [];
   for (const name of names) {
-    created.push(await db.team.create({ data: { name } }));
+    created.push(
+      await db.team.create({
+        data: {
+          competitionId: competition.id,
+          name,
+        },
+      }),
+    );
   }
 
-  const summary = `批量导入队伍：新增 ${created.length} 个`;
+  const summary = `批量导入队伍：${competition.name} 新增 ${created.length} 个`;
   await recordAdminOperationLog(db, {
     draftId: draft.draftId,
     operation: draft.action.type,
@@ -561,11 +610,18 @@ async function bulkCreateMatches(db: DbClient, draft: AssistantDraft) {
     db,
     draft.action.input.competitionName,
   );
+  if (!competition) {
+    throw new AssistantActionError("提交前未能定位赛事，请重新解析");
+  }
   const created = [];
 
   for (const match of draft.action.input.matches) {
-    const teamA = (await resolveTeamByName(db, match.teamAName)).team;
-    const teamB = (await resolveTeamByName(db, match.teamBName)).team;
+    const teamA = (
+      await resolveTeamByNameInCompetition(db, match.teamAName, competition.id)
+    ).team;
+    const teamB = (
+      await resolveTeamByNameInCompetition(db, match.teamBName, competition.id)
+    ).team;
     const startAt = parseDate(match.startAt);
 
     if (!teamA || !teamB || !startAt) {
@@ -575,7 +631,7 @@ async function bulkCreateMatches(db: DbClient, draft: AssistantDraft) {
     created.push(
       await db.match.create({
         data: {
-          competitionId: competition?.id ?? null,
+          competitionId: competition.id,
           startAt,
           location: match.location,
           teamAId: teamA.id,
@@ -734,7 +790,12 @@ export async function getAssistantContext() {
       take: 30,
     }),
     prisma.team.findMany({
-      select: { id: true, name: true },
+      select: {
+        id: true,
+        competitionId: true,
+        name: true,
+        competition: { select: { id: true, name: true } },
+      },
       orderBy: { name: "asc" },
       take: 100,
     }),

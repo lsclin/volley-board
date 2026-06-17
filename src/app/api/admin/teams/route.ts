@@ -2,11 +2,18 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { createTeamSchema } from "@/lib/validators";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await requireAdmin();
+    const { searchParams } = new URL(request.url);
+    const competitionId = searchParams.get("competitionId");
     const teams = await prisma.team.findMany({
-      orderBy: { name: "asc" },
+      where: competitionId ? { competitionId } : undefined,
+      include: {
+        competition: { select: { id: true, name: true } },
+        _count: { select: { matchesA: true, matchesB: true } },
+      },
+      orderBy: [{ competition: { startDate: "desc" } }, { name: "asc" }],
     });
     return Response.json(teams);
   } catch (error) {
@@ -24,10 +31,38 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = createTeamSchema.parse(body);
 
+    const competition = await prisma.competition.findUnique({
+      where: { id: data.competitionId },
+    });
+    if (!competition) {
+      return Response.json({ error: "赛事不存在" }, { status: 404 });
+    }
+
+    const existingTeams = await prisma.team.findMany({
+      where: {
+        competitionId: data.competitionId,
+      },
+    });
+    const normalizedName = data.name.trim().replace(/\s+/g, " ").toLowerCase();
+    const existing = existingTeams.some(
+      (team) => team.name.trim().replace(/\s+/g, " ").toLowerCase() === normalizedName,
+    );
+    if (existing) {
+      return Response.json(
+        { error: "该赛事下已经有同名队伍" },
+        { status: 400 },
+      );
+    }
+
     const team = await prisma.team.create({
       data: {
+        competitionId: data.competitionId,
         name: data.name,
         note: data.note ?? null,
+      },
+      include: {
+        competition: { select: { id: true, name: true } },
+        _count: { select: { matchesA: true, matchesB: true } },
       },
     });
 

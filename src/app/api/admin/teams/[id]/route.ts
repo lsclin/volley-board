@@ -12,6 +12,7 @@ export async function DELETE(
     const team = await prisma.team.findUnique({
       where: { id },
       include: {
+        competition: { select: { name: true } },
         _count: {
           select: {
             matchesA: true,
@@ -26,16 +27,36 @@ export async function DELETE(
     }
 
     const matchCount = team._count.matchesA + team._count.matchesB;
-    if (matchCount > 0) {
-      return Response.json(
-        { error: `该队伍已关联 ${matchCount} 场比赛，不能删除` },
-        { status: 400 },
-      );
-    }
+    const result = await prisma.$transaction(async (tx) => {
+      const matches = await tx.match.findMany({
+        where: {
+          OR: [{ teamAId: id }, { teamBId: id }],
+        },
+        select: { id: true },
+      });
+      const matchIds = matches.map((match) => match.id);
 
-    await prisma.team.delete({ where: { id } });
+      if (matchIds.length > 0) {
+        await tx.matchSet.deleteMany({
+          where: { matchId: { in: matchIds } },
+        });
+        await tx.match.deleteMany({
+          where: { id: { in: matchIds } },
+        });
+      }
 
-    return Response.json({ success: true });
+      await tx.team.delete({ where: { id } });
+      return { deletedMatchCount: matchIds.length };
+    });
+
+    return Response.json({
+      success: true,
+      deletedMatchCount: result.deletedMatchCount,
+      message:
+        matchCount > 0
+          ? `已删除队伍，并同步删除 ${result.deletedMatchCount} 场相关比赛`
+          : "已删除队伍",
+    });
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return Response.json({ error: "未登录" }, { status: 401 });

@@ -9,6 +9,12 @@ import { Plus, Trash2 } from "lucide-react";
 interface Team {
   id: string;
   name: string;
+  competitionId: string | null;
+}
+
+interface Competition {
+  id: string;
+  name: string;
 }
 
 export interface MatchFormData {
@@ -28,7 +34,8 @@ interface MatchFormProps {
   initialData?: Partial<MatchFormData>;
   title: string;
   teams: Team[];
-  competitions: Team[];
+  competitions: Competition[];
+  defaultCompetitionId?: string;
 }
 
 function toLocalDatetimeString(date: Date): string {
@@ -38,11 +45,11 @@ function toLocalDatetimeString(date: Date): string {
   return local.toISOString().slice(0, 16);
 }
 
-function getDefaultMatchForm(): MatchFormData {
+function getDefaultMatchForm(defaultCompetitionId = ""): MatchFormData {
   const now = new Date();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   return {
-    competitionId: "",
+    competitionId: defaultCompetitionId,
     startAt: `${today}T19:00`,
     location: "",
     teamAId: "",
@@ -54,8 +61,9 @@ function getDefaultMatchForm(): MatchFormData {
 
 function getInitialMatchForm(
   initialData?: Partial<MatchFormData>,
+  defaultCompetitionId = "",
 ): MatchFormData {
-  if (!initialData) return getDefaultMatchForm();
+  if (!initialData) return getDefaultMatchForm(defaultCompetitionId);
 
   return {
     competitionId: initialData.competitionId || "",
@@ -78,12 +86,24 @@ export function MatchForm({
   title: formTitle,
   teams,
   competitions,
+  defaultCompetitionId: preferredCompetitionId,
 }: MatchFormProps) {
+  const defaultCompetitionId =
+    initialData?.competitionId || preferredCompetitionId || competitions[0]?.id || "";
   const [form, setForm] = useState<MatchFormData>(() =>
-    getInitialMatchForm(initialData),
+    getInitialMatchForm(initialData, defaultCompetitionId),
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const filteredTeams = form.competitionId
+    ? teams.filter((team) => team.competitionId === form.competitionId)
+    : [];
+  const selectedLegacyTeams = teams.filter(
+    (team) =>
+      (team.id === form.teamAId || team.id === form.teamBId) &&
+      !filteredTeams.some((item) => item.id === team.id),
+  );
+  const teamOptions = [...filteredTeams, ...selectedLegacyTeams];
 
   const addSet = () => {
     setForm({
@@ -118,6 +138,10 @@ export function MatchForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.teamAId === form.teamBId) {
+      setError("比赛双方不能是同一队");
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -144,16 +168,29 @@ export function MatchForm({
           </label>
           <select
             value={form.competitionId}
-            onChange={(e) => setForm({ ...form, competitionId: e.target.value })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                competitionId: e.target.value,
+                teamAId: "",
+                teamBId: "",
+              })
+            }
             className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
           >
-            <option value="">无（独立比赛）</option>
+            <option value="">选择赛事</option>
             {competitions.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
           </select>
+          {form.competitionId && filteredTeams.length < 2 ? (
+            <p className="mt-1.5 text-sm text-yellow-700">
+              该赛事下还不足两个队伍，请先到队伍管理添加。
+            </p>
+          ) : null}
         </div>
         <Input
           label="比赛时间"
@@ -181,9 +218,10 @@ export function MatchForm({
               required
             >
               <option value="">选择队伍</option>
-              {teams.map((t) => (
+              {teamOptions.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
+                  {t.competitionId !== form.competitionId ? "（历史队伍）" : ""}
                 </option>
               ))}
             </select>
@@ -199,9 +237,10 @@ export function MatchForm({
               required
             >
               <option value="">选择队伍</option>
-              {teams.map((t) => (
+              {teamOptions.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
+                  {t.competitionId !== form.competitionId ? "（历史队伍）" : ""}
                 </option>
               ))}
             </select>
