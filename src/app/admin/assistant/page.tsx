@@ -15,7 +15,7 @@ const writeActions = [
 const examplePrompt = [
   "创建一个赛事，叫2026春季排球联赛，状态设为进行中。",
   "给春季联赛导入队伍：物医、生管火网、工同核人未、地化数微。",
-  "周五19点 A队对B队，20点 C队对D队，地点都是室内排球场。",
+  "周五19点 A队对B队，20点 C队对D队，地点都是气膜馆。",
 ].join("\n");
 
 function isWriteAction(draft: AssistantDraft | null) {
