@@ -1,10 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAdminAuth } from "@/lib/useAdminAuth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { LogOut } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { BookOpen, Bot, LayoutDashboard, LogOut } from "lucide-react";
+
+const adminNavItems = [
+  { href: "/admin", label: "后台首页", icon: LayoutDashboard },
+  { href: "/admin/assistant", label: "Agent 助手", icon: Bot },
+  { href: "/admin/manual", label: "使用手册", icon: BookOpen },
+];
 
 export default function AdminLayout({
   children,
@@ -12,6 +21,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { isAdmin, isLoading } = useAdminAuth();
+  const pathname = usePathname();
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
@@ -96,6 +106,26 @@ export default function AdminLayout({
           退出
         </Button>
       </div>
+      <nav className="mb-4 flex gap-1 overflow-x-auto rounded-lg bg-gray-100 p-1">
+        {adminNavItems.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "inline-flex min-h-[40px] flex-none items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700",
+              )}
+            >
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
       {children}
     </>
   );
