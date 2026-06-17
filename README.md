@@ -13,6 +13,7 @@ VolleyBoard 是面向校排协内部使用的轻量活动看板，不是传统�
 - 赛事列表和赛事详情
 - 比赛安排、比分、赛事内排名
 - 赛事资料外部链接和云存储文件上传
+- 管理员 Agent 助手（确认式执行）
 - 简单管理员后台
 - 微信群公告复制
 
@@ -45,6 +46,9 @@ SESSION_SECRET="your-random-string-at-least-32-chars"
 SUPABASE_URL="https://your-project.supabase.co"
 SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
 SUPABASE_STORAGE_BUCKET="competition-files"
+DEEPSEEK_API_KEY="your-deepseek-api-key"
+DEEPSEEK_BASE_URL="https://api.deepseek.com"
+DEEPSEEK_MODEL="deepseek-v4-pro"
 NODE_ENV="production"
 ```
 
@@ -57,6 +61,9 @@ NODE_ENV="production"
 - `SUPABASE_URL`：Supabase 项目地址，用于赛事资料文件上传。
 - `SUPABASE_SERVICE_ROLE_KEY`：Supabase 服务端密钥，只能放在 Render 环境变量中，不要暴露到前端或提交到 GitHub。
 - `SUPABASE_STORAGE_BUCKET`：赛事资料文件所在的 Supabase Storage bucket，建议使用公开 bucket，方便公开赛事详情页直接访问文件 URL。
+- `DEEPSEEK_API_KEY`：DeepSeek API Key，用于管理员 Agent 助手，只能放在 Render 环境变量中。
+- `DEEPSEEK_BASE_URL`：DeepSeek API 地址，默认 `https://api.deepseek.com`。
+- `DEEPSEEK_MODEL`：DeepSeek 模型名，默认 `deepseek-v4-pro`。
 - `NODE_ENV`：Render 通常会自动设置为 `production`，也可以显式配置。
 
 ## 数据库
@@ -94,6 +101,9 @@ SESSION_SECRET="your-random-string-at-least-32-chars"
 SUPABASE_URL="https://your-project.supabase.co"
 SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
 SUPABASE_STORAGE_BUCKET="competition-files"
+DEEPSEEK_API_KEY="your-deepseek-api-key"
+DEEPSEEK_BASE_URL="https://api.deepseek.com"
+DEEPSEEK_MODEL="deepseek-v4-pro"
 NODE_ENV="production"
 ```
 
@@ -144,3 +154,36 @@ Supabase Storage bucket 建议设置为公开 bucket，确保公开赛事详情�
 - 复制微信群公告
 
 后台写操作都需要管理员登录。
+
+## 管理员 Agent 助手
+
+进入 `/admin/assistant` 后可以使用管理员 Agent 助手。助手只面向管理员，不对普通成员开放。
+
+v1 支持：
+
+- 生成微信群公告
+- 查询赛事、队伍、赛程和比分
+- 创建赛事
+- 批量导入队伍
+- 批量创建赛程
+- 录入比分和局分
+
+安全限制：
+
+- 助手只生成结构化草稿，不直接写数据库。
+- 所有写操作都必须先展示预览，再由管理员点击确认执行。
+- 不支持删除操作。
+- 不允许执行任意 SQL。
+- 一次确认只执行一种写操作。
+- 写操作提交前后都会重新读取数据库校验。
+- 确认执行后的写操作会记录到 `AdminOperationLog`，使用 `draftId` 防止重复提交。
+
+生产环境需要配置：
+
+```env
+DEEPSEEK_API_KEY="your-deepseek-api-key"
+DEEPSEEK_BASE_URL="https://api.deepseek.com"
+DEEPSEEK_MODEL="deepseek-v4-pro"
+```
+
+`DEEPSEEK_API_KEY` 不要提交到 GitHub，也不要写在前端代码里。

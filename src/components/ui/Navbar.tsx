@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { Volleyball, History, Calendar, Settings } from "lucide-react";
+import { Bot, Volleyball, History, Calendar, Settings } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "看板", icon: Volleyball },
   { href: "/history", label: "历史", icon: History },
   { href: "/schedule", label: "赛事", icon: Calendar },
   { href: "/admin", label: "管理", icon: Settings },
+  { href: "/admin/assistant", label: "助手", icon: Bot },
 ];
 
 export function Navbar() {
@@ -25,9 +26,10 @@ export function Navbar() {
         </div>
         <div className="flex flex-col gap-1">
           {navItems.map((item) => {
-            const isActive = item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+            const isActive =
+              item.href === "/" || item.href === "/admin"
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
@@ -50,9 +52,10 @@ export function Navbar() {
       {/* Mobile bottom bar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex justify-around items-center px-2 py-1.5 safe-area-bottom">
         {navItems.map((item) => {
-          const isActive = item.href === "/"
-            ? pathname === "/"
-            : pathname.startsWith(item.href);
+          const isActive =
+            item.href === "/" || item.href === "/admin"
+              ? pathname === item.href
+              : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
