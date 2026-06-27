@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { attendanceSchema } from "@/lib/validators";
-import { computeCounts } from "@/lib/attendance";
+import { getActivityCounts } from "@/lib/activityCounts";
 import { ActivityStatus } from "@prisma/client";
 
 export async function POST(
@@ -14,7 +14,6 @@ export async function POST(
 
     const activity = await prisma.activity.findUnique({
       where: { id },
-      include: { attendances: true },
     });
 
     if (!activity) {
@@ -38,15 +37,7 @@ export async function POST(
       create: { activityId: id, clientId, status },
     });
 
-    const updatedAttendances = await prisma.attendance.findMany({
-      where: { activityId: id },
-    });
-
-    const { expectedCount, arrivedCount } = computeCounts(
-      updatedAttendances,
-      activity.manualExpectedDelta,
-      activity.manualArrivedDelta,
-    );
+    const { expectedCount, arrivedCount } = await getActivityCounts(activity);
 
     if (arrivedCount > activity.peakArrivedCount) {
       await prisma.activity.update({

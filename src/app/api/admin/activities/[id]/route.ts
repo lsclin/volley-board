@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { updateActivitySchema } from "@/lib/validators";
-import { computeCounts } from "@/lib/attendance";
+import { getActivityCounts } from "@/lib/activityCounts";
 
 export async function PATCH(
   request: Request,
@@ -36,14 +36,9 @@ export async function PATCH(
     const activity = await prisma.activity.update({
       where: { id },
       data: updateData,
-      include: { attendances: true },
     });
 
-    const { expectedCount, arrivedCount } = computeCounts(
-      activity.attendances,
-      activity.manualExpectedDelta,
-      activity.manualArrivedDelta,
-    );
+    const { expectedCount, arrivedCount } = await getActivityCounts(activity);
 
     return Response.json({
       id: activity.id,

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { computeCounts } from "@/lib/attendance";
+import { getActivityCountMap } from "@/lib/activityCounts";
 import { ActivityStatus } from "@prisma/client";
 
 export async function GET() {
@@ -9,18 +9,15 @@ export async function GET() {
         visible: true,
         status: { in: [ActivityStatus.scheduled, ActivityStatus.live] },
       },
-      include: {
-        attendances: true,
-      },
       orderBy: { startAt: "asc" },
     });
+    const countMap = await getActivityCountMap(activities);
 
     const result = activities.map((activity) => {
-      const { expectedCount, arrivedCount } = computeCounts(
-        activity.attendances,
-        activity.manualExpectedDelta,
-        activity.manualArrivedDelta,
-      );
+      const counts = countMap.get(activity.id) ?? {
+        expectedCount: activity.manualExpectedDelta,
+        arrivedCount: activity.manualArrivedDelta,
+      };
       return {
         id: activity.id,
         title: activity.title,
@@ -36,8 +33,8 @@ export async function GET() {
         peakArrivedCount: activity.peakArrivedCount,
         createdAt: activity.createdAt,
         updatedAt: activity.updatedAt,
-        expectedCount,
-        arrivedCount,
+        expectedCount: counts.expectedCount,
+        arrivedCount: counts.arrivedCount,
       };
     });
 

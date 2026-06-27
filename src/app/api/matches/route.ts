@@ -1,8 +1,15 @@
 import { prisma } from "@/lib/db";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const parsedLimit = Number(searchParams.get("limit") || 3);
+    const limit = Number.isFinite(parsedLimit)
+      ? Math.min(Math.max(parsedLimit, 1), 10)
+      : 3;
+
     const matches = await prisma.match.findMany({
+      take: limit,
       include: {
         teamA: true,
         teamB: true,

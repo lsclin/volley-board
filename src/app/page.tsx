@@ -74,7 +74,10 @@ function getSetScore(match: RecentMatch) {
 }
 
 function RecentMatchesSection() {
-  const { data: matches, isLoading } = useSWR<RecentMatch[]>("/api/matches", fetcher);
+  const { data: matches, isLoading } = useSWR<RecentMatch[]>(
+    "/api/matches?limit=3",
+    fetcher,
+  );
   const recentMatches = matches?.slice(0, 3) ?? [];
 
   return (
@@ -178,10 +181,30 @@ export default function Home() {
   const statuses = JSON.parse(statusSnapshot) as Record<string, string>;
 
   const handleAttendanceUpdate = useCallback(
-    (activityId: string) => (newStatus: string) => {
-      setStoredStatus(activityId, newStatus);
-      mutate();
-    },
+    (activityId: string) =>
+      (
+        newStatus: string,
+        counts?: { expectedCount: number; arrivedCount: number },
+      ) => {
+        setStoredStatus(activityId, newStatus);
+        if (!counts) {
+          mutate();
+          return;
+        }
+        mutate(
+          (current) =>
+            current?.map((activity) =>
+              activity.id === activityId
+                ? {
+                    ...activity,
+                    expectedCount: counts.expectedCount,
+                    arrivedCount: counts.arrivedCount,
+                  }
+                : activity,
+            ),
+          { revalidate: false },
+        );
+      },
     [mutate],
   );
 

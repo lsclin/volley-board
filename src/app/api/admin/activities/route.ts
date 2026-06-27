@@ -1,22 +1,21 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { createActivitySchema } from "@/lib/validators";
-import { computeCounts } from "@/lib/attendance";
+import { getActivityCountMap } from "@/lib/activityCounts";
 
 export async function GET() {
   try {
     await requireAdmin();
     const activities = await prisma.activity.findMany({
-      include: { attendances: true },
       orderBy: { startAt: "desc" },
     });
+    const countMap = await getActivityCountMap(activities);
 
     const result = activities.map((activity) => {
-      const { expectedCount, arrivedCount } = computeCounts(
-        activity.attendances,
-        activity.manualExpectedDelta,
-        activity.manualArrivedDelta,
-      );
+      const counts = countMap.get(activity.id) ?? {
+        expectedCount: activity.manualExpectedDelta,
+        arrivedCount: activity.manualArrivedDelta,
+      };
       return {
         id: activity.id,
         title: activity.title,
@@ -32,8 +31,8 @@ export async function GET() {
         peakArrivedCount: activity.peakArrivedCount,
         createdAt: activity.createdAt,
         updatedAt: activity.updatedAt,
-        expectedCount,
-        arrivedCount,
+        expectedCount: counts.expectedCount,
+        arrivedCount: counts.arrivedCount,
       };
     });
 

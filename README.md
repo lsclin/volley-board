@@ -114,6 +114,7 @@ NODE_ENV="production"
 - 不要在生产使用 Render 本地 SQLite 文件保存长期数据。
 - Render 免费 Web Service 15 分钟无入站流量会休眠，再次打开通常会有约 1 分钟冷启动等待。
 - Render 免费 Web Service 不适合作为长期文件存储。上传的赛事资料不会保存到 Render 本地文件系统，生产文件存储依赖 Supabase Storage。
+- 如果继续使用 Render 免费版，可以用 UptimeRobot 或 cron-job.org 每 10 分钟访问一次 `/api/health`。这个接口不查询数据库，只用于轻量唤醒服务。
 
 Turso / libSQL 说明：
 

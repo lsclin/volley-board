@@ -8,7 +8,10 @@ import { User, UserCheck } from "lucide-react";
 interface AttendanceButtonsProps {
   activityId: string;
   currentStatus?: string | null;
-  onUpdate: (newStatus: string) => void;
+  onUpdate: (
+    newStatus: string,
+    counts?: { expectedCount: number; arrivedCount: number },
+  ) => void;
   disabled?: boolean;
 }
 
@@ -39,7 +42,20 @@ export function AttendanceButtons({
         return;
       }
 
-      onUpdate(nextStatus);
+      const data = (await res.json()) as {
+        expectedCount?: number;
+        arrivedCount?: number;
+      };
+      onUpdate(
+        nextStatus,
+        typeof data.expectedCount === "number" &&
+          typeof data.arrivedCount === "number"
+          ? {
+              expectedCount: data.expectedCount,
+              arrivedCount: data.arrivedCount,
+            }
+          : undefined,
+      );
     } catch {
       alert("网络错误，请重试");
     } finally {
