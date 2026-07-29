@@ -3,12 +3,20 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { Bot, Volleyball, History, Calendar, Settings } from "lucide-react";
+import {
+  Bot,
+  Volleyball,
+  History,
+  Calendar,
+  Settings,
+  CalendarDays,
+} from "lucide-react";
 
 const navItems = [
   { href: "/", label: "看板", icon: Volleyball },
   { href: "/history", label: "历史", icon: History },
   { href: "/schedule", label: "赛事", icon: Calendar },
+  { href: "/weekly-schedule", label: "固定安排", icon: CalendarDays },
   { href: "/admin", label: "管理", icon: Settings },
   { href: "/admin/assistant", label: "助手", icon: Bot },
 ];
@@ -61,14 +69,14 @@ export function Navbar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg min-w-[60px] transition-colors",
+                "flex min-w-[52px] flex-col items-center gap-0.5 rounded-lg px-1 py-1 transition-colors",
                 isActive
                   ? "text-blue-600"
                   : "text-gray-400 hover:text-gray-600",
               )}
             >
               <item.icon className="w-5 h-5" />
-              <span className="text-[11px] font-medium">{item.label}</span>
+              <span className="text-[10px] font-medium leading-4">{item.label}</span>
             </Link>
           );
         })}

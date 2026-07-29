@@ -13,6 +13,10 @@ import { CopyAnnouncement } from "@/components/admin/CopyAnnouncement";
 import { ActivityWithCounts } from "@/types";
 import { formatDateTime } from "@/lib/time";
 import {
+  getTodaySchedule,
+  WEEKLY_SCHEDULE_LOCATION,
+} from "@/config/weeklySchedule";
+import {
   Plus,
   Edit3,
   Play,
@@ -22,6 +26,7 @@ import {
   FileText,
   Trash2,
   Upload,
+  CalendarPlus,
 } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -72,10 +77,33 @@ function toFormData(a: ActivityWithCounts): Partial<ActivityFormData> {
   };
 }
 
+function toLocalDateTimeInput(date: Date): string {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+}
+
+function getTodayPickupDraft(): Partial<ActivityFormData> {
+  const startAt = new Date();
+  startAt.setHours(19, 0, 0, 0);
+  const endAt = new Date(startAt);
+  endAt.setHours(21, 0, 0, 0);
+
+  return {
+    title: "今日野球",
+    type: "pickup",
+    startAt: toLocalDateTimeInput(startAt),
+    endAt: toLocalDateTimeInput(endAt),
+    location: WEEKLY_SCHEDULE_LOCATION,
+    note: "新手可以直接来，不需要提前报名。到场前点“会来”，到场后点“到了”。",
+    visible: true,
+  };
+}
+
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("activities");
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [editingActivity, setEditingActivity] = useState<ActivityWithCounts | null>(null);
+  const [activityDraft, setActivityDraft] = useState<Partial<ActivityFormData> | null>(null);
   const [showMatchForm, setShowMatchForm] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Record<string, unknown> | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
@@ -195,6 +223,24 @@ export default function AdminPage() {
       return;
     }
     mutateActivities();
+  };
+
+  const handleCreateFromTodaySchedule = () => {
+    const schedule = getTodaySchedule();
+
+    if (schedule.type === "pickup") {
+      setEditingActivity(null);
+      setActivityDraft(getTodayPickupDraft());
+      setShowActivityForm(true);
+      return;
+    }
+
+    if (schedule.type === "team_training") {
+      alert("今天固定安排为校队训练，不建议创建野球签到活动。如有特殊情况，请手动创建活动。");
+      return;
+    }
+
+    alert("今天暂无固定安排，如需活动请手动创建。");
   };
 
   // Match actions
@@ -438,17 +484,31 @@ export default function AdminPage() {
       {/* Activities Tab */}
       {tab === "activities" ? (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-sm text-gray-500">
               {activities?.length || 0} 场活动
             </span>
-            <Button
-              size="sm"
-              onClick={() => setShowActivityForm(true)}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              创建活动
-            </Button>
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleCreateFromTodaySchedule}
+              >
+                <CalendarPlus className="w-4 h-4 mr-1" />
+                根据今日固定安排创建活动
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setActivityDraft(null);
+                  setEditingActivity(null);
+                  setShowActivityForm(true);
+                }}
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                创建活动
+              </Button>
+            </div>
           </div>
 
           {activities?.map((a: ActivityWithCounts) => (
@@ -500,6 +560,7 @@ export default function AdminPage() {
                       size="sm"
                       onClick={() => {
                         setEditingActivity(a);
+                        setActivityDraft(null);
                         setShowActivityForm(true);
                       }}
                     >
@@ -561,17 +622,31 @@ export default function AdminPage() {
 
           {showActivityForm ? (
             <ActivityForm
-              key={editingActivity?.id ?? "create-activity"}
+              key={
+                editingActivity?.id ??
+                (activityDraft ? "create-from-weekly-schedule" : "create-activity")
+              }
               open={showActivityForm}
               onClose={() => {
                 setShowActivityForm(false);
                 setEditingActivity(null);
+                setActivityDraft(null);
               }}
               onSubmit={
                 editingActivity ? handleUpdateActivity : handleCreateActivity
               }
-              initialData={editingActivity ? toFormData(editingActivity) : undefined}
-              title={editingActivity ? "编辑活动" : "创建活动"}
+              initialData={
+                editingActivity
+                  ? toFormData(editingActivity)
+                  : activityDraft ?? undefined
+              }
+              title={
+                editingActivity
+                  ? "编辑活动"
+                  : activityDraft
+                    ? "根据今日固定安排创建活动"
+                    : "创建活动"
+              }
             />
           ) : null}
         </div>

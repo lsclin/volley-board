@@ -5,10 +5,15 @@ import useSWR from "swr";
 import { format, parseISO } from "date-fns";
 import { ActivityCard } from "@/components/activity/ActivityCard";
 import { AttendanceButtons } from "@/components/activity/AttendanceButtons";
+import {
+  TodayScheduleCard,
+  WeeklyScheduleList,
+} from "@/components/schedule/WeeklyScheduleCards";
 import { useActivities } from "@/lib/useActivities";
+import { useTodaySchedule } from "@/lib/useTodaySchedule";
 import { ActivityWithCounts } from "@/types";
 import { matchStatus } from "@/lib/matchStatus";
-import { CalendarDays, ChevronRight, Info, MapPin, Trophy } from "lucide-react";
+import { ChevronRight, Info, MapPin, Trophy } from "lucide-react";
 import Link from "next/link";
 
 const ATTENDANCE_CHANGE_EVENT = "volley-attendance-change";
@@ -78,7 +83,7 @@ function RecentMatchesSection() {
     "/api/matches?limit=3",
     fetcher,
   );
-  const recentMatches = matches?.slice(0, 3) ?? [];
+  const recentMatches = Array.isArray(matches) ? matches.slice(0, 3) : [];
 
   return (
     <section className="space-y-3">
@@ -173,6 +178,7 @@ function RecentMatchesSection() {
 
 export default function Home() {
   const { activities, isLoading, mutate } = useActivities();
+  const todaySchedule = useTodaySchedule();
   const statusSnapshot = useSyncExternalStore(
     subscribeToAttendanceChanges,
     getAttendanceSnapshot,
@@ -231,17 +237,19 @@ export default function Home() {
             ))}
           </div>
         ) : activities.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 text-center py-10 px-4">
-            <CalendarDays className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm mb-1">暂无活动</p>
-            <p className="text-gray-400 text-xs">
-              管理员创建野球场次后会在这里显示
-            </p>
+          <div className="space-y-3">
+            {todaySchedule ? (
+              <TodayScheduleCard item={todaySchedule} />
+            ) : (
+              <div className="rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500">
+                正在读取今日固定安排...
+              </div>
+            )}
             <Link
-              href="/history"
-              className="inline-block mt-3 text-sm text-blue-600 hover:underline"
+              href="/weekly-schedule"
+              className="inline-flex items-center text-sm text-blue-600 hover:underline"
             >
-              查看历史记录 →
+              查看完整固定安排 →
             </Link>
           </div>
         ) : (
@@ -260,6 +268,24 @@ export default function Home() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">每周固定安排</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              默认场地使用情况，不自动生成活动
+            </p>
+          </div>
+          <Link
+            href="/weekly-schedule"
+            className="flex-none text-sm text-blue-600 hover:underline"
+          >
+            详情
+          </Link>
+        </div>
+        <WeeklyScheduleList highlightWeekday={todaySchedule?.weekday} />
       </section>
 
       <section className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
