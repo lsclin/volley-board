@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/Button";
+import { generateAnnouncement } from "@/lib/announcement";
 import { Copy } from "lucide-react";
 
 interface CopyAnnouncementProps {
@@ -9,27 +10,20 @@ interface CopyAnnouncementProps {
     startAt: Date;
     endAt: Date;
     location: string;
-    expectedCount: number;
-    arrivedCount: number;
+    note?: string | null;
   };
 }
 
 export function CopyAnnouncement({ activity }: CopyAnnouncementProps) {
   const handleCopy = async () => {
-    const start = new Date(activity.startAt);
-    const end = new Date(activity.endAt);
-    const sh = String(start.getHours()).padStart(2, "0");
-    const sm = String(start.getMinutes()).padStart(2, "0");
-    const eh = String(end.getHours()).padStart(2, "0");
-    const em = String(end.getMinutes()).padStart(2, "0");
-
-    const text = [
-      activity.title,
-      `时间：${sh}:${sm}-${eh}:${em}`,
-      `地点：${activity.location}`,
-      `当前预计：${activity.expectedCount} 人，已到：${activity.arrivedCount} 人`,
-      `看板链接：${window.location.origin}`,
-    ].join("\n");
+    const text = generateAnnouncement({
+      title: activity.title,
+      startAt: new Date(activity.startAt),
+      endAt: new Date(activity.endAt),
+      location: activity.location,
+      note: activity.note,
+      boardUrl: window.location.origin,
+    });
 
     try {
       await navigator.clipboard.writeText(text);

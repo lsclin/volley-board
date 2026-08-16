@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
 import { BookOpen, Bot, LayoutDashboard, LogOut } from "lucide-react";
 
 const adminNavItems = [
-  { href: "/admin", label: "后台首页", icon: LayoutDashboard },
+  { href: "/admin", label: "工作台", icon: LayoutDashboard },
   { href: "/admin/assistant", label: "Agent 助手", icon: Bot },
   { href: "/admin/manual", label: "使用手册", icon: BookOpen },
 ];
@@ -66,13 +66,13 @@ export default function AdminLayout({
 
   if (!isAdmin) {
     return (
-      <div className="max-w-sm mx-auto mt-16">
+      <div className="max-w-sm mx-auto mt-10 px-2">
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
           <h1 className="text-lg font-bold text-gray-900 mb-1">管理员登录</h1>
-          <p className="text-sm text-gray-500 mb-6">请输入管理密码</p>
+          <p className="text-sm text-gray-500 mb-6">进入后台维护赛事、活动与资料</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <Input
-              label="密码"
+              label="管理员密码"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -86,9 +86,12 @@ export default function AdminLayout({
               loading={loggingIn}
               className="w-full"
             >
-              登录
+              进入管理后台
             </Button>
           </form>
+          <p className="mt-4 text-xs leading-5 text-gray-400">
+            本网站无成员账号体系。所有人看到同一套公开页面，只有输入管理员密码后才能进入后台。
+          </p>
         </div>
       </div>
     );
@@ -99,7 +102,7 @@ export default function AdminLayout({
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900">管理员后台</h1>
-          <p className="text-sm text-gray-500">管理活动、比赛与排名</p>
+          <p className="text-sm text-gray-500">赛事与活动维护工作台</p>
         </div>
         <Button variant="ghost" size="sm" onClick={handleLogout}>
           <LogOut className="w-4 h-4 mr-1" />

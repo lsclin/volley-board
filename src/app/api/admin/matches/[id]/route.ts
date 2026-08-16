@@ -12,7 +12,10 @@ export async function PATCH(
     const body = await request.json();
     const data = updateMatchSchema.parse(body);
 
-    const existing = await prisma.match.findUnique({ where: { id } });
+    const existing = await prisma.match.findUnique({
+      where: { id },
+      include: { sets: true },
+    });
     if (!existing) {
       return Response.json({ error: "比赛不存在" }, { status: 404 });
     }
@@ -59,17 +62,46 @@ export async function PATCH(
 
     const updateData: Record<string, unknown> = {};
 
-    if (matchData.startAt !== undefined) updateData.startAt = new Date(matchData.startAt);
+    if (matchData.startAt !== undefined) {
+      updateData.startAt = matchData.startAt ? new Date(matchData.startAt) : null;
+    }
     if (matchData.location !== undefined) updateData.location = matchData.location;
     if (matchData.teamAId !== undefined) updateData.teamAId = matchData.teamAId;
     if (matchData.teamBId !== undefined) updateData.teamBId = matchData.teamBId;
     if (matchData.competitionId !== undefined)
       updateData.competitionId = matchData.competitionId || null;
-    if (matchData.status !== undefined) updateData.status = matchData.status;
     if (matchData.note !== undefined) updateData.note = matchData.note;
-    if (sets !== undefined && matchData.status === undefined) {
-      updateData.status = sets.length > 0 ? "finished" : "scheduled";
+
+    // 状态推导：明确指定 > 局分决定 > 时间变化联动
+    let nextStatus: string | undefined = matchData.status;
+    if (sets !== undefined && nextStatus === undefined) {
+      nextStatus = sets.length > 0
+        ? "finished"
+        : (matchData.startAt ?? existing.startAt)
+          ? "scheduled"
+          : "pending";
+    } else if (matchData.startAt !== undefined && nextStatus === undefined) {
+      if (matchData.startAt === null) {
+        if (existing.status === "scheduled" || existing.status === "pending") {
+          nextStatus = "pending";
+        }
+      } else if (existing.status === "pending") {
+        nextStatus = "scheduled";
+      }
     }
+
+    if (
+      nextStatus === "finished" &&
+      sets === undefined &&
+      existing.sets.length === 0
+    ) {
+      return Response.json(
+        { error: "请先录入局分再标记为已结束" },
+        { status: 400 },
+      );
+    }
+
+    if (nextStatus !== undefined) updateData.status = nextStatus;
 
     await prisma.match.update({
       where: { id },
@@ -113,5 +145,27 @@ export async function PATCH(
     }
     console.error("Failed to update match:", error);
     return Response.json({ error: "更新比赛失败" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+    const existing = await prisma.match.findUnique({ where: { id } });
+    if (!existing) {
+      return Response.json({ error: "比赛不存在" }, { status: 404 });
+    }
+    await prisma.match.delete({ where: { id } });
+    return Response.json({ success: true });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return Response.json({ error: "未登录" }, { status: 401 });
+    }
+    console.error("Failed to delete match:", error);
+    return Response.json({ error: "删除比赛失败" }, { status: 500 });
   }
 }

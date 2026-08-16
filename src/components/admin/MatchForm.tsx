@@ -19,6 +19,7 @@ interface Competition {
 
 export interface MatchFormData {
   competitionId: string;
+  /** 空字符串 = 时间待确认（pending） */
   startAt: string;
   location: string;
   teamAId: string;
@@ -27,10 +28,15 @@ export interface MatchFormData {
   sets: { setNo: number; scoreA: number; scoreB: number }[];
 }
 
+/** 提交给后端的结构：startAt 为 null 表示时间待确认 */
+export type MatchFormSubmitData = Omit<MatchFormData, "startAt"> & {
+  startAt: string | null;
+};
+
 interface MatchFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: MatchFormData) => Promise<void>;
+  onSubmit: (data: MatchFormSubmitData) => Promise<void>;
   initialData?: Partial<MatchFormData>;
   title: string;
   teams: Team[];
@@ -46,11 +52,9 @@ function toLocalDatetimeString(date: Date): string {
 }
 
 function getDefaultMatchForm(defaultCompetitionId = ""): MatchFormData {
-  const now = new Date();
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   return {
     competitionId: defaultCompetitionId,
-    startAt: `${today}T19:00`,
+    startAt: "",
     location: "",
     teamAId: "",
     teamBId: "",
@@ -148,7 +152,7 @@ export function MatchForm({
     try {
       const payload = {
         ...form,
-        startAt: new Date(form.startAt).toISOString(),
+        startAt: form.startAt ? new Date(form.startAt).toISOString() : null,
       };
       await onSubmit(payload);
       onClose();
@@ -192,19 +196,23 @@ export function MatchForm({
             </p>
           ) : null}
         </div>
-        <Input
-          label="比赛时间"
-          type="datetime-local"
-          value={form.startAt}
-          onChange={(e) => setForm({ ...form, startAt: e.target.value })}
-          required
-        />
+        <div>
+          <Input
+            label="比赛时间"
+            type="datetime-local"
+            value={form.startAt}
+            onChange={(e) => setForm({ ...form, startAt: e.target.value })}
+          />
+          <p className="mt-1 text-xs text-gray-400">
+            留空表示「时间待确认」，队伍确定后再补充。
+          </p>
+        </div>
         <Input
           label="地点"
           value={form.location}
           onChange={(e) => setForm({ ...form, location: e.target.value })}
           required
-          placeholder="如：东区排球场 1 号场"
+          placeholder="室内排球场"
         />
         <div className="grid grid-cols-2 gap-3">
           <div>

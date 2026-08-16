@@ -1,23 +1,30 @@
+import { format } from "date-fns";
+
+/**
+ * 生成活动通知文案（QQ 群公告）。
+ * 通知只包含时间、地点与说明；报名与野球接龙在 QQ 群内进行，网站不做签到。
+ */
 export function generateAnnouncement(data: {
   title: string;
   startAt: Date;
   endAt: Date;
   location: string;
-  expectedCount: number;
-  arrivedCount: number;
+  note?: string | null;
   boardUrl?: string;
 }): string {
-  const { title, startAt, endAt, location, expectedCount, arrivedCount, boardUrl } = data;
+  const { title, startAt, endAt, location, note, boardUrl } = data;
 
-  const hours = String(startAt.getHours()).padStart(2, "0");
-  const mins = String(startAt.getMinutes()).padStart(2, "0");
-  const endHours = String(endAt.getHours()).padStart(2, "0");
-  const endMins = String(endAt.getMinutes()).padStart(2, "0");
+  const startText = `${format(startAt, "M月d日")} ${format(startAt, "HH:mm")}`;
+  const endText = `${format(endAt, "M月d日")} ${format(endAt, "HH:mm")}`;
 
-  let text = `${title}\n时间：${hours}:${mins}-${endHours}:${endMins}\n地点：${location}\n当前预计：${expectedCount} 人，已到：${arrivedCount} 人`;
+  let text = `${title}\n时间：${startText} - ${endText}\n地点：${location}`;
+
+  if (note) {
+    text += `\n${note}`;
+  }
 
   if (boardUrl) {
-    text += `\n看板链接：${boardUrl}`;
+    text += `\n活动详情：${boardUrl}`;
   }
 
   return text;

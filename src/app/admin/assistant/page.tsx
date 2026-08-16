@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Bot, CheckCircle2, Clipboard, Send } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { AssistantDraft } from "@/lib/assistantSchemas";
@@ -46,6 +46,28 @@ export default function AdminAssistantPage() {
   const [parsing, setParsing] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [submittedDraftIds, setSubmittedDraftIds] = useState<string[]>([]);
+  const [competitionContext, setCompetitionContext] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  // 从赛事工作区进入时携带 ?competitionId=，作为当前赛事上下文
+  useEffect(() => {
+    const search = new URLSearchParams(window.location.search);
+    const id = search.get("competitionId");
+    if (!id) return;
+
+    fetch(`/api/admin/competitions/${id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.id) {
+          setCompetitionContext({ id: data.id, name: data.name });
+        }
+      })
+      .catch(() => {
+        // 上下文加载失败不影响助手使用
+      });
+  }, []);
 
   const draftIsWriteAction = isWriteAction(draft);
   const draftSubmitted = draft
@@ -70,7 +92,10 @@ export default function AdminAssistantPage() {
       const res = await fetch("/api/admin/assistant/parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          competitionId: competitionContext?.id,
+        }),
       });
       const data = await res.json().catch(() => null);
 
@@ -141,6 +166,14 @@ export default function AdminAssistantPage() {
           </div>
         </div>
       </section>
+
+      {competitionContext ? (
+        <section className="rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-800">
+          当前赛事上下文：
+          <span className="font-semibold">{competitionContext.name}</span>
+          ，涉及队伍、比赛、比分的操作默认属于该赛事，无需再说明赛事名称。
+        </section>
+      ) : null}
 
       <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4">
         <label

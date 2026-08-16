@@ -1,11 +1,15 @@
 import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { createMatchSchema } from "@/lib/validators";
+import { ZodError } from "zod";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await requireAdmin();
+    const { searchParams } = new URL(request.url);
+    const competitionId = searchParams.get("competitionId");
     const matches = await prisma.match.findMany({
+      where: competitionId ? { competitionId } : undefined,
       include: {
         competition: true,
         teamA: true,
@@ -58,11 +62,16 @@ export async function POST(request: Request) {
     const match = await prisma.match.create({
       data: {
         competitionId: data.competitionId,
-        startAt: new Date(data.startAt),
+        startAt: data.startAt ? new Date(data.startAt) : null,
         location: data.location,
         teamAId: data.teamAId,
         teamBId: data.teamBId,
-        status: data.sets?.length ? "finished" : "scheduled",
+        // 有局分 → finished；有时间 → scheduled；都没有 → pending（时间待确认）
+        status: data.sets?.length
+          ? "finished"
+          : data.startAt
+            ? "scheduled"
+            : "pending",
         note: data.note ?? null,
         sets: data.sets?.length
           ? {
@@ -86,6 +95,12 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "Unauthorized") {
       return Response.json({ error: "未登录" }, { status: 401 });
+    }
+    if (error instanceof ZodError) {
+      return Response.json(
+        { error: error.issues[0]?.message || "请求格式不正确" },
+        { status: 400 },
+      );
     }
     console.error("Failed to create match:", error);
     return Response.json({ error: "创建比赛失败" }, { status: 500 });

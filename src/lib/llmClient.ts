@@ -5,6 +5,7 @@ type AssistantContext = {
   competitions: unknown[];
   teams: unknown[];
   matches: unknown[];
+  focusCompetition?: unknown | null;
 };
 
 type DeepSeekChatResponse = {
@@ -40,7 +41,7 @@ function getDeepSeekConfig() {
 }
 
 function buildSystemPrompt() {
-  return `你是排球协会活动看板的管理员维护助手。你必须只输出 json，不要输出 Markdown 或解释文字。
+  return `你是排球协会赛事与活动信息中心的管理员维护助手。你必须只输出 json，不要输出 Markdown 或解释文字。
 
 你只能生成一个 AssistantDraft JSON 对象。所有写操作都只是草稿，真实执行前会由管理员确认。
 
@@ -49,9 +50,11 @@ function buildSystemPrompt() {
 - 一次草稿只能包含一个 action。
 - 如果用户同时要求导入队伍并创建赛程，请只生成第一步 bulkCreateTeams，并在 warnings 里说明下一步再创建赛程。
 - 队伍属于具体赛事；bulkCreateTeams 和 bulkCreateMatches 必须尽量带上 competitionName。赛事不明确时 canCommit=false。
-- 不支持删除、任意 SQL、自动执行。
-- bulkCreateMatches 的 startAt 必须是完整 ISO 时间，并带 +08:00 或 Z；如果时间不明确，canCommit=false。
+- 当前赛事上下文：如果 context 里有 focusCompetition，那么涉及赛事、队伍、比赛、比分、公告的操作都默认属于这个赛事，使用 focusCompetition.name 作为 competitionName，不要再次询问"哪个赛事"；除非用户明确提到另一个赛事。
+- 比赛支持"时间待确认"：用户只说了对阵但没给时间时，bulkCreateMatches 的 startAt 可以留空字符串，并把该场放在最后，不要编造时间。
+- bulkCreateMatches 的 startAt 如果填写，必须是完整 ISO 时间，并带 +08:00 或 Z；时间不明确时置为空字符串表示待确认，而不是 canCommit=false。
 - updateMatchScore 必须有唯一 matchId；如果无法唯一定位比赛，canCommit=false，并在 preview 中列候选条件。
+- 不支持删除、任意 SQL、自动执行。
 - system prompt 中明确要求 json，是为了配合 DeepSeek response_format json_object。
 
 AssistantDraft 示例：

@@ -1,1028 +1,242 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
 import useSWR from "swr";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import Link from "next/link";
+import { parseISO } from "date-fns";
 import { Badge } from "@/components/ui/Badge";
-import { Dialog } from "@/components/ui/Dialog";
-import { ActivityForm, ActivityFormData } from "@/components/admin/ActivityForm";
-import { MatchForm, MatchFormData } from "@/components/admin/MatchForm";
-import { CompetitionForm, CompetitionFormData } from "@/components/admin/CompetitionForm";
-import { CopyAnnouncement } from "@/components/admin/CopyAnnouncement";
-import { ActivityWithCounts } from "@/types";
-import { formatDateTime } from "@/lib/time";
 import {
-  getTodaySchedule,
-  WEEKLY_SCHEDULE_LOCATION,
-} from "@/config/weeklySchedule";
-import {
-  Plus,
-  Edit3,
-  Play,
-  Square,
-  XCircle,
-  LinkIcon,
+  ArrowRight,
+  CalendarDays,
+  ClipboardList,
   FileText,
-  Trash2,
-  Upload,
-  CalendarPlus,
+  Trophy,
 } from "lucide-react";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-type Tab = "activities" | "competitions" | "matches" | "teams";
-
-type CompetitionFileView = {
+interface AdminCompetition {
   id: string;
   name: string;
-  url: string;
-  type: string;
-};
+  season: string | null;
+  status: string;
+  _count: { matches: number; files: number };
+}
 
-type AdminCompetition = {
-  id: string;
-  name: string;
-};
-
-type AdminTeam = {
+interface AdminMatch {
   id: string;
   competitionId: string | null;
-  name: string;
-  note: string | null;
-  competition?: AdminCompetition | null;
-  _count?: {
-    matchesA: number;
-    matchesB: number;
-  };
+  startAt: string | null;
+  status: string;
+  teamA: { name: string };
+  teamB: { name: string };
+  competition: { id: string; name: string } | null;
+}
+
+const competitionStatusLabel: Record<string, string> = {
+  upcoming: "即将开始",
+  ongoing: "进行中",
+  finished: "已结束",
+  archived: "已归档",
 };
 
-function toFormData(a: ActivityWithCounts): Partial<ActivityFormData> {
-  const d = new Date(a.startAt);
-  const localStart = new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-  const e = new Date(a.endAt);
-  const localEnd = new Date(e.getTime() - e.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-  return {
-    title: a.title,
-    type: a.type,
-    startAt: localStart,
-    endAt: localEnd,
-    location: a.location,
-    note: a.note || "",
-    visible: a.visible,
-  };
-}
-
-function toLocalDateTimeInput(date: Date): string {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16);
-}
-
-function getTodayPickupDraft(): Partial<ActivityFormData> {
-  const startAt = new Date();
-  startAt.setHours(19, 0, 0, 0);
-  const endAt = new Date(startAt);
-  endAt.setHours(21, 0, 0, 0);
-
-  return {
-    title: "今日野球",
-    type: "pickup",
-    startAt: toLocalDateTimeInput(startAt),
-    endAt: toLocalDateTimeInput(endAt),
-    location: WEEKLY_SCHEDULE_LOCATION,
-    note: "新手可以直接来，不需要提前报名。到场前点“会来”，到场后点“到了”。",
-    visible: true,
-  };
-}
-
-export default function AdminPage() {
-  const [tab, setTab] = useState<Tab>("activities");
-  const [showActivityForm, setShowActivityForm] = useState(false);
-  const [editingActivity, setEditingActivity] = useState<ActivityWithCounts | null>(null);
-  const [activityDraft, setActivityDraft] = useState<Partial<ActivityFormData> | null>(null);
-  const [showMatchForm, setShowMatchForm] = useState(false);
-  const [editingMatch, setEditingMatch] = useState<Record<string, unknown> | null>(null);
-  const [newTeamName, setNewTeamName] = useState("");
-  const [selectedTeamCompetitionId, setSelectedTeamCompetitionId] = useState("");
-  const [showCompForm, setShowCompForm] = useState(false);
-  const [editingCompetition, setEditingCompetition] = useState<Record<string, unknown> | null>(null);
-  const [linkCompetition, setLinkCompetition] = useState<Record<string, unknown> | null>(null);
-  const [fileForm, setFileForm] = useState({
-    name: "",
-    url: "",
-    type: "other",
-  });
-  const [fileError, setFileError] = useState("");
-  const [savingFile, setSavingFile] = useState(false);
-  const [uploadingCompetitionId, setUploadingCompetitionId] = useState<string | null>(null);
-
-  const { data: activities, mutate: mutateActivities } = useSWR(
-    "/api/admin/activities",
-    fetcher,
-  );
-  const { data: matches, mutate: mutateMatches } = useSWR(
-    "/api/admin/matches",
-    fetcher,
-  );
-  const { data: teams, mutate: mutateTeams } = useSWR(
-    "/api/admin/teams",
-    fetcher,
-  );
-  const { data: competitions, mutate: mutateCompetitions } = useSWR(
+export default function AdminWorkbenchPage() {
+  const { data: competitions } = useSWR<AdminCompetition[]>(
     "/api/admin/competitions",
     fetcher,
   );
+  const { data: matches } = useSWR<AdminMatch[]>("/api/admin/matches", fetcher);
 
-  const competitionOptions = useMemo(
-    () => ((competitions as AdminCompetition[] | undefined) ?? []),
-    [competitions],
+  const activeCompetitions = (competitions ?? []).filter(
+    (c) => c.status === "ongoing" || c.status === "upcoming",
   );
-  const teamList = (teams as AdminTeam[] | undefined) ?? [];
-  const effectiveTeamCompetitionId =
-    selectedTeamCompetitionId &&
-    competitionOptions.some(
-      (competition) => competition.id === selectedTeamCompetitionId,
-    )
-      ? selectedTeamCompetitionId
-      : competitionOptions[0]?.id || "";
-  const selectedCompetitionTeams = teamList.filter(
-    (team) => team.competitionId === effectiveTeamCompetitionId,
+  const matchList = matches ?? [];
+
+  const matchesOf = (competitionId: string) =>
+    matchList.filter((m) => m.competitionId === competitionId);
+
+  // 近期待办：从现有比赛状态推导，不建 Task 表
+  const pendingMatches = matchList.filter((m) => m.status === "pending");
+  const overdueMatches = matchList.filter(
+    (m) =>
+      m.status === "scheduled" && m.startAt && parseISO(m.startAt) < new Date(),
   );
-  const hasMatchCreatableTeams = competitionOptions.some(
-    (competition) =>
-      teamList.filter((team) => team.competitionId === competition.id).length >= 2,
-  );
-  const matchDefaultCompetitionId =
-    competitionOptions.find(
-      (competition) =>
-        teamList.filter((team) => team.competitionId === competition.id).length >= 2,
-    )?.id ||
-    competitionOptions[0]?.id ||
-    "";
 
-  // Activity actions
-  const handleCreateActivity = async (data: ActivityFormData) => {
-    const res = await fetch("/api/admin/activities", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "创建失败");
-    }
-    mutateActivities();
-  };
-
-  const handleUpdateActivity = async (data: ActivityFormData) => {
-    if (!editingActivity) return;
-    const res = await fetch(`/api/admin/activities/${editingActivity.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "更新失败");
-    }
-    mutateActivities();
-    setEditingActivity(null);
-  };
-
-  const handleStatusChange = async (
-    activityId: string,
-    status: string,
-  ) => {
-    await fetch(`/api/admin/activities/${activityId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    mutateActivities();
-  };
-
-  const handleActivityDelete = async (activity: ActivityWithCounts) => {
-    if (
-      !confirm(
-        `确定删除活动「${activity.title}」吗？删除后该活动的签到记录也会一起删除。`,
-      )
-    ) {
-      return;
-    }
-
-    const res = await fetch(`/api/admin/activities/${activity.id}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      alert(err?.error || "删除活动失败");
-      return;
-    }
-    mutateActivities();
-  };
-
-  const handleCreateFromTodaySchedule = () => {
-    const schedule = getTodaySchedule();
-
-    if (schedule.type === "pickup") {
-      setEditingActivity(null);
-      setActivityDraft(getTodayPickupDraft());
-      setShowActivityForm(true);
-      return;
-    }
-
-    if (schedule.type === "team_training") {
-      alert("今天固定安排为校队训练，不建议创建野球签到活动。如有特殊情况，请手动创建活动。");
-      return;
-    }
-
-    alert("今天暂无固定安排，如需活动请手动创建。");
-  };
-
-  // Match actions
-  const handleCreateMatch = async (data: MatchFormData) => {
-    const res = await fetch("/api/admin/matches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "创建失败");
-    }
-    mutateMatches();
-  };
-
-  const handleUpdateMatch = async (data: MatchFormData) => {
-    if (!editingMatch) return;
-    const res = await fetch(`/api/admin/matches/${editingMatch.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "更新失败");
-    }
-    mutateMatches();
-    setEditingMatch(null);
-  };
-
-  // Team actions
-  const handleCreateTeam = async () => {
-    if (!newTeamName.trim() || !effectiveTeamCompetitionId) return;
-    const res = await fetch("/api/admin/teams", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        competitionId: effectiveTeamCompetitionId,
-        name: newTeamName.trim(),
-      }),
-    });
-    if (res.ok) {
-      setNewTeamName("");
-      mutateTeams();
-      mutateCompetitions();
-      return;
-    }
-    const err = await res.json().catch(() => null);
-    alert(err?.error || "创建队伍失败");
-  };
-
-  const handleTeamDelete = async (team: AdminTeam) => {
-    const matchCount =
-      (team._count?.matchesA ?? 0) + (team._count?.matchesB ?? 0);
-    const detail =
-      matchCount > 0
-        ? `该队伍关联的 ${matchCount} 场比赛和对应局分也会一起删除。`
-        : "该队伍当前没有关联比赛。";
-    if (!confirm(`确定删除队伍「${team.name}」吗？${detail}`)) return;
-
-    const res = await fetch(`/api/admin/teams/${team.id}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      alert(err?.error || "删除队伍失败");
-      return;
-    }
-    const result = await res.json().catch(() => null);
-    if (result?.message && result?.deletedMatchCount > 0) {
-      alert(result.message);
-    }
-    mutateTeams();
-    mutateMatches();
-    mutateCompetitions();
-  };
-
-  // Competition actions
-  const handleCreateCompetition = async (data: CompetitionFormData) => {
-    const payload: Record<string, unknown> = { ...data };
-    if (data.startDate) payload.startDate = new Date(data.startDate).toISOString();
-    if (data.endDate) payload.endDate = new Date(data.endDate).toISOString();
-    else payload.endDate = null;
-    if (!data.startDate) payload.startDate = null;
-    const res = await fetch("/api/admin/competitions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "创建失败");
-    }
-    mutateCompetitions();
-  };
-
-  const handleUpdateCompetition = async (data: CompetitionFormData) => {
-    if (!editingCompetition) return;
-    const payload: Record<string, unknown> = { ...data };
-    if (data.startDate) payload.startDate = new Date(data.startDate).toISOString();
-    else payload.startDate = null;
-    if (data.endDate) payload.endDate = new Date(data.endDate).toISOString();
-    else payload.endDate = null;
-    const res = await fetch(`/api/admin/competitions/${editingCompetition.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || "更新失败");
-    }
-    mutateCompetitions();
-    setEditingCompetition(null);
-  };
-
-  const handleCompStatusChange = async (compId: string, status: string) => {
-    await fetch(`/api/admin/competitions/${compId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
-    });
-    mutateCompetitions();
-  };
-
-  const openFileLinkDialog = (competition: Record<string, unknown>) => {
-    setLinkCompetition(competition);
-    setFileForm({ name: "", url: "", type: "other" });
-    setFileError("");
-  };
-
-  const closeFileLinkDialog = () => {
-    setLinkCompetition(null);
-    setFileError("");
-    setSavingFile(false);
-  };
-
-  const handleFileLinkCreate = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!linkCompetition) return;
-
-    setSavingFile(true);
-    setFileError("");
-
-    const res = await fetch(
-      `/api/admin/competitions/${linkCompetition.id as string}/files`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: fileForm.name.trim(),
-          url: fileForm.url.trim(),
-          type: fileForm.type,
-        }),
-      },
-    );
-
-    setSavingFile(false);
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => null);
-      setFileError(err?.error || "保存资料失败");
-      return;
-    }
-
-    mutateCompetitions();
-    closeFileLinkDialog();
-  };
-
-  const handleFileUpload = (competitionId: string) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*,.pdf,.xlsx,.xls,.csv,.doc,.docx";
-
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return;
-
-      setUploadingCompetitionId(competitionId);
-
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const res = await fetch(`/api/admin/competitions/${competitionId}/files`, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          alert(err?.error || "上传资料失败");
-          return;
-        }
-
-        mutateCompetitions();
-      } catch {
-        alert("上传失败，请检查网络后重试");
-      } finally {
-        setUploadingCompetitionId(null);
-      }
-    };
-
-    input.click();
-  };
-
-  const handleFileDelete = async (compId: string, fileId: string) => {
-    await fetch(`/api/admin/competitions/${compId}/files/${fileId}`, {
-      method: "DELETE",
-    });
-    mutateCompetitions();
-  };
-
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "activities", label: "活动管理" },
-    { key: "competitions", label: "赛事管理" },
-    { key: "matches", label: "比赛管理" },
-    { key: "teams", label: "队伍管理" },
+  const quickLinks = [
+    {
+      href: "/admin/activities",
+      label: "活动管理",
+      desc: "发布野球、训练等活动信息",
+      icon: CalendarDays,
+    },
+    {
+      href: "/admin/competitions",
+      label: "赛事管理",
+      desc: "创建赛事，进入赛事工作区",
+      icon: Trophy,
+    },
+    {
+      href: "/admin/matches",
+      label: "比赛管理",
+      desc: "跨赛事补录比分、确认时间",
+      icon: ClipboardList,
+    },
+    {
+      href: "/admin/competitions",
+      label: "资料管理",
+      desc: "在赛事工作区上传与整理资料",
+      icon: FileText,
+    },
   ];
 
   return (
-    <div className="space-y-4">
-      {/* Tab bar */}
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
-              tab === t.key
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Activities Tab */}
-      {tab === "activities" ? (
-        <div className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-sm text-gray-500">
-              {activities?.length || 0} 场活动
-            </span>
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleCreateFromTodaySchedule}
-              >
-                <CalendarPlus className="w-4 h-4 mr-1" />
-                根据今日固定安排创建活动
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setActivityDraft(null);
-                  setEditingActivity(null);
-                  setShowActivityForm(true);
-                }}
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                创建活动
-              </Button>
-            </div>
+    <div className="space-y-5">
+      {/* 当前赛事 */}
+      <section className="space-y-3">
+        <h2 className="text-base font-bold text-gray-900">当前赛事</h2>
+        {activeCompetitions.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
+            <Trophy className="w-9 h-9 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-500">暂无进行中或即将开始的赛事</p>
+            <Link
+              href="/admin/competitions"
+              className="inline-block mt-3 text-sm text-blue-600 hover:underline"
+            >
+              去创建赛事
+            </Link>
           </div>
-
-          {activities?.map((a: ActivityWithCounts) => (
-            <div
-              key={a.id}
-              className="bg-white rounded-xl border border-gray-200 p-4"
-            >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div>
-                  <h3 className="font-semibold text-gray-900">{a.title}</h3>
-                  <p className="text-sm text-gray-500">
-                    {formatDateTime(new Date(a.startAt))} · {a.location}
-                  </p>
-                </div>
-                <Badge
-                  variant={
-                    a.status === "live"
-                      ? "success"
-                      : a.status === "scheduled"
-                        ? "info"
-                        : "default"
-                  }
+        ) : (
+          <div className="space-y-3">
+            {activeCompetitions.map((comp) => {
+              const compMatches = matchesOf(comp.id);
+              const finished = compMatches.filter(
+                (m) => m.status === "finished",
+              ).length;
+              const pendingCount = compMatches.filter(
+                (m) => m.status === "pending",
+              ).length;
+              const overdueCount = compMatches.filter(
+                (m) =>
+                  m.status === "scheduled" &&
+                  m.startAt &&
+                  parseISO(m.startAt) < new Date(),
+              ).length;
+              return (
+                <div
+                  key={comp.id}
+                  className="bg-white rounded-xl border border-gray-200 p-4"
                 >
-                  {a.status === "scheduled"
-                    ? "未开始"
-                    : a.status === "live"
-                      ? "进行中"
-                      : a.status === "ended"
-                        ? "已结束"
-                        : "已取消"}
-                </Badge>
-              </div>
-
-              <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
-                <span>预计 {a.expectedCount} 人</span>
-                <span>已到 {a.arrivedCount} 人</span>
-                <span>峰值 {a.peakArrivedCount} 人</span>
-              </div>
-
-              {a.note ? (
-                <p className="text-sm text-gray-400 mb-3">{a.note}</p>
-              ) : null}
-
-              <div className="flex flex-wrap gap-2">
-                {(a.status === "scheduled" || a.status === "live") ? (
-                  <>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        setEditingActivity(a);
-                        setActivityDraft(null);
-                        setShowActivityForm(true);
-                      }}
-                    >
-                      <Edit3 className="w-3.5 h-3.5 mr-1" />
-                      编辑
-                    </Button>
-                    {a.status === "scheduled" ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleStatusChange(a.id, "live")}
-                      >
-                        <Play className="w-3.5 h-3.5 mr-1" />
-                        开始
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleStatusChange(a.id, "ended")}
-                      >
-                        <Square className="w-3.5 h-3.5 mr-1" />
-                        结束
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleStatusChange(a.id, "cancelled")}
-                    >
-                      <XCircle className="w-3.5 h-3.5 mr-1" />
-                      取消
-                    </Button>
-                  </>
-                ) : null}
-                <CopyAnnouncement
-                  activity={{
-                    title: a.title,
-                    startAt: new Date(a.startAt),
-                    endAt: new Date(a.endAt),
-                    location: a.location,
-                    expectedCount: a.expectedCount,
-                    arrivedCount: a.arrivedCount,
-                  }}
-                />
-                {a.status !== "live" ? (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => handleActivityDelete(a)}
-                  >
-                    <Trash2 className="w-3.5 h-3.5 mr-1" />
-                    删除
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          ))}
-
-          {showActivityForm ? (
-            <ActivityForm
-              key={
-                editingActivity?.id ??
-                (activityDraft ? "create-from-weekly-schedule" : "create-activity")
-              }
-              open={showActivityForm}
-              onClose={() => {
-                setShowActivityForm(false);
-                setEditingActivity(null);
-                setActivityDraft(null);
-              }}
-              onSubmit={
-                editingActivity ? handleUpdateActivity : handleCreateActivity
-              }
-              initialData={
-                editingActivity
-                  ? toFormData(editingActivity)
-                  : activityDraft ?? undefined
-              }
-              title={
-                editingActivity
-                  ? "编辑活动"
-                  : activityDraft
-                    ? "根据今日固定安排创建活动"
-                    : "创建活动"
-              }
-            />
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* Competitions Tab */}
-      {tab === "competitions" ? (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">
-              {competitions?.length || 0} 个赛事
-            </span>
-            <Button size="sm" onClick={() => setShowCompForm(true)}>
-              <Plus className="w-4 h-4 mr-1" />
-              创建赛事
-            </Button>
-          </div>
-
-          {competitions?.map((c: Record<string, unknown>) => (
-            <div key={c.id as string} className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div>
-                  <h3 className="font-semibold text-gray-900">{c.name as string}</h3>
-                  {(c.season || c.description) ? (
-                    <p className="text-sm text-gray-500">
-                      {[c.season, c.description].filter(Boolean).join(" · ")}
-                    </p>
-                  ) : null}
-                </div>
-                <Badge variant={c.status === "ongoing" ? "success" : c.status === "finished" ? "default" : "info"}>
-                  {c.status === "upcoming" ? "即将开始" : c.status === "ongoing" ? "进行中" : c.status === "finished" ? "已结束" : "已归档"}
-                </Badge>
-              </div>
-
-              <div className="text-sm text-gray-500 mb-3">
-                比赛 {(c as Record<string, unknown>)._count ? ((c as Record<string, unknown>)._count as Record<string, number>).matches : 0} 场
-                {" · "}资料 {(c as Record<string, unknown>)._count ? ((c as Record<string, unknown>)._count as Record<string, number>).files : 0} 个
-              </div>
-
-              {((c.files as CompetitionFileView[] | undefined)?.length ?? 0) > 0 ? (
-                <div className="mb-3 rounded-lg border border-gray-100 bg-gray-50 divide-y divide-gray-100">
-                  {(c.files as CompetitionFileView[]).map((file) => (
-                    <div key={file.id} className="flex items-center justify-between gap-2 px-3 py-2">
-                      <a
-                        href={file.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-2 min-w-0 text-sm text-gray-600 hover:text-blue-600"
-                      >
-                        <FileText className="w-4 h-4 flex-none" />
-                        <span className="truncate">{file.name}</span>
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => handleFileDelete(c.id as string, file.id)}
-                        className="p-1 text-gray-400 hover:text-red-500"
-                        aria-label={`删除 ${file.name}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" size="sm" onClick={() => { setEditingCompetition(c); setShowCompForm(true); }}>
-                  <Edit3 className="w-3.5 h-3.5 mr-1" />编辑
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => openFileLinkDialog(c)}>
-                  <LinkIcon className="w-3.5 h-3.5 mr-1" />添加资料链接
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleFileUpload(c.id as string)}
-                  loading={uploadingCompetitionId === c.id}
-                >
-                  <Upload className="w-3.5 h-3.5 mr-1" />上传本地文件
-                </Button>
-                {c.status === "upcoming" ? (
-                  <Button variant="ghost" size="sm" onClick={() => handleCompStatusChange(c.id as string, "ongoing")}>
-                    <Play className="w-3.5 h-3.5 mr-1" />开始
-                  </Button>
-                ) : c.status === "ongoing" ? (
-                  <Button variant="ghost" size="sm" onClick={() => handleCompStatusChange(c.id as string, "finished")}>
-                    <Square className="w-3.5 h-3.5 mr-1" />结束
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          ))}
-
-          {showCompForm ? (
-            <CompetitionForm
-              key={(editingCompetition?.id as string | undefined) ?? "create-competition"}
-              open={showCompForm}
-              onClose={() => { setShowCompForm(false); setEditingCompetition(null); }}
-              onSubmit={editingCompetition ? handleUpdateCompetition : handleCreateCompetition}
-              initialData={editingCompetition as Record<string, string> | undefined}
-              title={editingCompetition ? "编辑赛事" : "创建赛事"}
-            />
-          ) : null}
-
-          <Dialog
-            open={Boolean(linkCompetition)}
-            onClose={closeFileLinkDialog}
-            title="添加资料链接"
-          >
-            <form className="space-y-4" onSubmit={handleFileLinkCreate}>
-              <p className="text-sm leading-6 text-gray-500">
-                将文件放在网盘、在线文档或资料库后，把可访问链接保存到这里。
-              </p>
-              <Input
-                label="资料名称"
-                value={fileForm.name}
-                onChange={(e) =>
-                  setFileForm((prev) => ({ ...prev, name: e.target.value }))
-                }
-                placeholder="例如：竞赛规程 PDF"
-              />
-              <Input
-                label="资料链接"
-                value={fileForm.url}
-                onChange={(e) =>
-                  setFileForm((prev) => ({ ...prev, url: e.target.value }))
-                }
-                placeholder="https://..."
-              />
-              <div className="flex flex-col gap-1.5">
-                <label
-                  htmlFor="competition-file-type"
-                  className="text-sm font-medium text-gray-700"
-                >
-                  类型
-                </label>
-                <select
-                  id="competition-file-type"
-                  value={fileForm.type}
-                  onChange={(e) =>
-                    setFileForm((prev) => ({ ...prev, type: e.target.value }))
-                  }
-                  className="min-h-[44px] rounded-lg border border-gray-300 px-3 py-2.5 text-base text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="other">其他</option>
-                  <option value="pdf">PDF</option>
-                  <option value="spreadsheet">表格</option>
-                  <option value="image">图片</option>
-                </select>
-              </div>
-              {fileError ? (
-                <p className="text-sm text-red-600">{fileError}</p>
-              ) : null}
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="flex-1"
-                  onClick={closeFileLinkDialog}
-                >
-                  取消
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1"
-                  loading={savingFile}
-                  disabled={!fileForm.name.trim() || !fileForm.url.trim()}
-                >
-                  保存资料
-                </Button>
-              </div>
-            </form>
-          </Dialog>
-        </div>
-      ) : null}
-
-      {/* Matches Tab */}
-      {tab === "matches" ? (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">
-              {matches?.length || 0} 场比赛
-            </span>
-            <Button
-              size="sm"
-              onClick={() => setShowMatchForm(true)}
-              disabled={!hasMatchCreatableTeams}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              创建比赛
-            </Button>
-          </div>
-
-          {!hasMatchCreatableTeams ? (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
-              请先在「队伍管理」中选择赛事，并为该赛事创建至少两个队伍。
-            </div>
-          ) : null}
-
-          {matches?.map((m: Record<string, unknown>) => (
-            <div
-              key={m.id as string}
-              className="bg-white rounded-xl border border-gray-200 p-4"
-            >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div>
-                  <h3 className="font-semibold text-gray-900">
-                    {(m.teamA as Record<string, string>)?.name} vs{" "}
-                    {(m.teamB as Record<string, string>)?.name}
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                  {formatDateTime(new Date(m.startAt as string))} ·{" "}
-                  {m.location as string}
-                  {(m.competition as Record<string, string> | null)?.name
-                    ? ` · ${(m.competition as Record<string, string>).name}`
-                    : ""}
-                  </p>
-                </div>
-                <Badge
-                  variant={
-                    m.status === "finished"
-                      ? "success"
-                      : m.status === "scheduled"
-                        ? "info"
-                        : "default"
-                  }
-                >
-                  {m.status === "scheduled"
-                    ? "未开始"
-                    : m.status === "finished"
-                      ? "已结束"
-                      : "已取消"}
-                </Badge>
-              </div>
-
-              {(m.sets as unknown[])?.length > 0 ? (
-                <div className="flex gap-2 mb-2">
-                  {(m.sets as Array<Record<string, number>>).map(
-                    (s, i) => (
-                      <span
-                        key={i}
-                        className="text-xs bg-gray-50 px-2 py-0.5 rounded"
-                      >
-                        R{s.setNo}: {s.scoreA}-{s.scoreB}
-                      </span>
-                    ),
-                  )}
-                </div>
-              ) : null}
-
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setEditingMatch(m);
-                    setShowMatchForm(true);
-                  }}
-                >
-                  <Edit3 className="w-3.5 h-3.5 mr-1" />
-                  编辑比分
-                </Button>
-              </div>
-            </div>
-          ))}
-
-          {showMatchForm ? (
-            <MatchForm
-              key={(editingMatch?.id as string | undefined) ?? "create-match"}
-              open={showMatchForm}
-              onClose={() => {
-                setShowMatchForm(false);
-                setEditingMatch(null);
-              }}
-              onSubmit={
-                editingMatch ? handleUpdateMatch : handleCreateMatch
-              }
-              initialData={editingMatch || undefined}
-              title={editingMatch ? "编辑比赛" : "创建比赛"}
-              teams={teamList}
-              competitions={competitionOptions}
-              defaultCompetitionId={matchDefaultCompetitionId}
-            />
-          ) : null}
-        </div>
-      ) : null}
-
-      {/* Teams Tab */}
-      {tab === "teams" ? (
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <label
-              htmlFor="team-competition"
-              className="text-sm font-medium text-gray-700"
-            >
-              所属赛事
-            </label>
-            <select
-              id="team-competition"
-              value={effectiveTeamCompetitionId}
-              onChange={(e) => setSelectedTeamCompetitionId(e.target.value)}
-              className="w-full min-h-[44px] rounded-lg border border-gray-300 px-3 py-2.5 text-base text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {competitionOptions.length === 0 ? (
-                <option value="">请先创建赛事</option>
-              ) : null}
-              {competitionOptions.map((competition) => (
-                <option key={competition.id} value={competition.id}>
-                  {competition.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs leading-5 text-gray-500">
-              队伍按赛事管理。每次重新分队时，请先选择对应赛事再添加队伍。
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            <Input
-              value={newTeamName}
-              onChange={(e) => setNewTeamName(e.target.value)}
-              placeholder="输入队伍名称"
-              className="flex-1"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateTeam();
-              }}
-              disabled={!effectiveTeamCompetitionId}
-            />
-            <Button
-              onClick={handleCreateTeam}
-              disabled={!newTeamName.trim() || !effectiveTeamCompetitionId}
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              添加
-            </Button>
-          </div>
-
-          {selectedCompetitionTeams.length > 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-              {selectedCompetitionTeams.map(
-                (t) => {
-                  const matchCount =
-                    (t._count?.matchesA ?? 0) + (t._count?.matchesB ?? 0);
-                  return (
-                  <div key={t.id} className="p-4 flex items-center justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-medium text-gray-900">{t.name}</p>
-                      <p className="text-sm text-gray-400">
-                        关联比赛 {matchCount} 场
-                      </p>
-                      {t.note ? (
-                        <p className="text-sm text-gray-400">{t.note}</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900">
+                          {comp.name}
+                        </h3>
+                        <Badge
+                          variant={comp.status === "ongoing" ? "success" : "info"}
+                        >
+                          {competitionStatusLabel[comp.status] || comp.status}
+                        </Badge>
+                      </div>
+                      {comp.season ? (
+                        <p className="text-sm text-gray-500 mt-0.5">
+                          {comp.season}
+                        </p>
                       ) : null}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleTeamDelete(t)}
-                      className="p-2 text-gray-400 hover:text-red-500"
-                      aria-label={`删除 ${t.name}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
-                  );
-                },
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-gray-500 text-sm">
-              {effectiveTeamCompetitionId
-                ? "该赛事暂无队伍，请添加"
-                : "请先创建赛事，再添加队伍"}
-            </div>
-          )}
+
+                  <div className="mt-3 space-y-1 text-sm text-gray-600">
+                    <p>
+                      已完成：{finished} / {comp._count.matches} 场
+                    </p>
+                    <p>待确认时间：{pendingCount} 场</p>
+                    <p>待录入比分：{overdueCount} 场</p>
+                  </div>
+
+                  <Link
+                    href={`/admin/competitions/${comp.id}`}
+                    className="inline-flex items-center gap-1 mt-3 text-sm font-medium text-blue-600 hover:underline"
+                  >
+                    进入赛事工作区
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* 快捷入口 */}
+      <section className="space-y-3">
+        <h2 className="text-base font-bold text-gray-900">快捷入口</h2>
+        <div className="grid grid-cols-2 gap-3">
+          {quickLinks.map((link) => (
+            <Link
+              key={link.label}
+              href={link.href}
+              className="bg-white rounded-xl border border-gray-200 p-4 hover:border-blue-300 transition-colors"
+            >
+              <link.icon className="w-5 h-5 text-blue-600 mb-2" />
+              <p className="font-semibold text-gray-900 text-sm">{link.label}</p>
+              <p className="text-xs text-gray-500 mt-0.5 leading-4">
+                {link.desc}
+              </p>
+            </Link>
+          ))}
         </div>
-      ) : null}
+      </section>
+
+      {/* 近期待办 */}
+      <section className="space-y-3">
+        <h2 className="text-base font-bold text-gray-900">近期待办</h2>
+        {pendingMatches.length === 0 && overdueMatches.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
+            <p className="text-sm text-gray-500">暂无待办事项</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+            {overdueMatches.slice(0, 4).map((m) => (
+              <Link
+                key={`overdue-${m.id}`}
+                href={
+                  m.competition
+                    ? `/admin/competitions/${m.competition.id}#matches`
+                    : "/admin/matches"
+                }
+                className="flex items-center gap-3 p-3.5 hover:bg-gray-50"
+              >
+                <span className="flex-none text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                  补录
+                </span>
+                <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">
+                  {m.teamA.name} VS {m.teamB.name} 比分
+                </span>
+                <ArrowRight className="w-4 h-4 text-gray-300 flex-none" />
+              </Link>
+            ))}
+            {pendingMatches.slice(0, 4).map((m) => (
+              <Link
+                key={`pending-${m.id}`}
+                href={
+                  m.competition
+                    ? `/admin/competitions/${m.competition.id}#matches`
+                    : "/admin/matches"
+                }
+                className="flex items-center gap-3 p-3.5 hover:bg-gray-50"
+              >
+                <span className="flex-none text-xs font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">
+                  确认
+                </span>
+                <span className="flex-1 min-w-0 text-sm text-gray-800 truncate">
+                  {m.teamA.name} VS {m.teamB.name} 比赛时间
+                </span>
+                <ArrowRight className="w-4 h-4 text-gray-300 flex-none" />
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

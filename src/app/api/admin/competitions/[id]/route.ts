@@ -2,6 +2,46 @@ import { prisma } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { updateCompetitionSchema } from "@/lib/validators";
 
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    await requireAdmin();
+    const { id } = await params;
+    const competition = await prisma.competition.findUnique({
+      where: { id },
+      include: {
+        teams: {
+          include: { _count: { select: { matchesA: true, matchesB: true } } },
+          orderBy: { name: "asc" },
+        },
+        matches: {
+          include: {
+            teamA: true,
+            teamB: true,
+            sets: { orderBy: { setNo: "asc" } },
+          },
+          orderBy: { startAt: "asc" },
+        },
+        files: { orderBy: { createdAt: "desc" } },
+      },
+    });
+
+    if (!competition) {
+      return Response.json({ error: "赛事不存在" }, { status: 404 });
+    }
+
+    return Response.json(competition);
+  } catch (error) {
+    if (error instanceof Error && error.message === "Unauthorized") {
+      return Response.json({ error: "未登录" }, { status: 401 });
+    }
+    console.error("Failed to fetch competition:", error);
+    return Response.json({ error: "获取赛事失败" }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },

@@ -12,9 +12,9 @@ export async function POST(request: Request) {
   try {
     await requireAdmin();
     const body = await request.json().catch(() => null);
-    const { message } = parseAssistantRequestSchema.parse(body);
+    const { message, competitionId } = parseAssistantRequestSchema.parse(body);
 
-    const context = await getAssistantContext();
+    const context = await getAssistantContext(competitionId);
     const modelDraft = await parseAssistantMessageWithDeepSeek({
       message,
       context,

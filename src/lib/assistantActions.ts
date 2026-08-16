@@ -183,7 +183,7 @@ async function validateQueryCompetitionInfo(
         matches: action.input.includeMatches
           ? competition.matches.map((match) => ({
               id: match.id,
-              time: match.startAt.toISOString(),
+              time: match.startAt ? match.startAt.toISOString() : null,
               location: match.location,
               teams: `${match.teamA.name} vs ${match.teamB.name}`,
               status: match.status,
@@ -399,7 +399,9 @@ async function findCandidateMatches(db: DbClient, action: Extract<AssistantActio
       if (!competitionName.includes(nameKey(action.input.competitionName))) return false;
     }
     if (action.input.matchDate) {
-      const dateText = match.startAt.toISOString().slice(0, 10);
+      const dateText = match.startAt
+        ? match.startAt.toISOString().slice(0, 10)
+        : "";
       if (!dateText.includes(action.input.matchDate.slice(0, 10))) return false;
     }
     if (teamNames.length === 2) {
@@ -438,7 +440,7 @@ async function validateUpdateMatchScore(
         候选比赛: candidates.map((match) => ({
           id: match.id,
           赛事: match.competition?.name ?? "无",
-          时间: match.startAt.toISOString(),
+          时间: match.startAt ? match.startAt.toISOString() : null,
           地点: match.location,
           对阵: `${match.teamA.name} vs ${match.teamB.name}`,
           状态: match.status,
@@ -471,7 +473,7 @@ async function validateUpdateMatchScore(
         ? {
             id: match.id,
             赛事: match.competition?.name ?? "无",
-            时间: match.startAt.toISOString(),
+            时间: match.startAt ? match.startAt.toISOString() : null,
             地点: match.location,
             对阵: `${match.teamA.name} vs ${match.teamB.name}`,
           }
@@ -775,8 +777,8 @@ export async function commitAssistantDraft(draft: AssistantDraft) {
   return result;
 }
 
-export async function getAssistantContext() {
-  const [competitions, teams, matches] = await Promise.all([
+export async function getAssistantContext(competitionId?: string) {
+  const [competitions, teams, matches, focusCompetition] = await Promise.all([
     prisma.competition.findMany({
       select: {
         id: true,
@@ -814,6 +816,30 @@ export async function getAssistantContext() {
       orderBy: { startAt: "desc" },
       take: 80,
     }),
+    competitionId
+      ? prisma.competition.findUnique({
+          where: { id: competitionId },
+          include: {
+            teams: {
+              select: { id: true, name: true },
+              orderBy: { name: "asc" },
+              take: 50,
+            },
+            matches: {
+              select: {
+                id: true,
+                startAt: true,
+                location: true,
+                status: true,
+                teamA: { select: { id: true, name: true } },
+                teamB: { select: { id: true, name: true } },
+              },
+              orderBy: { startAt: "asc" },
+              take: 60,
+            },
+          },
+        })
+      : Promise.resolve(null),
   ]);
 
   return {
@@ -826,7 +852,27 @@ export async function getAssistantContext() {
     teams,
     matches: matches.map((match) => ({
       ...match,
-      startAt: match.startAt.toISOString(),
+      startAt: match.startAt ? match.startAt.toISOString() : null,
     })),
+    // 赛事上下文：管理员在赛事工作区打开助手时，操作默认属于该赛事
+    focusCompetition: focusCompetition
+      ? {
+          id: focusCompetition.id,
+          name: focusCompetition.name,
+          status: focusCompetition.status,
+          season: focusCompetition.season,
+          teams: focusCompetition.teams.map((team) => ({
+            id: team.id,
+            name: team.name,
+          })),
+          matches: focusCompetition.matches.map((match) => ({
+            id: match.id,
+            startAt: match.startAt ? match.startAt.toISOString() : null,
+            status: match.status,
+            teamAName: match.teamA.name,
+            teamBName: match.teamB.name,
+          })),
+        }
+      : null,
   };
 }

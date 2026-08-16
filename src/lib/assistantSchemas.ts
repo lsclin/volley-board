@@ -123,6 +123,7 @@ export const assistantModelDraftSchema = assistantDraftSchema
 
 export const parseAssistantRequestSchema = z.object({
   message: z.string().trim().min(1, "请输入要处理的内容").max(6000),
+  competitionId: z.string().trim().min(1).optional(),
 });
 
 export const commitAssistantRequestSchema = assistantDraftSchema;
