@@ -3,22 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import {
-  Bot,
-  Volleyball,
-  History,
-  Calendar,
-  Settings,
-  CalendarDays,
-} from "lucide-react";
+import { Volleyball, Calendar, Settings } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "看板", icon: Volleyball },
-  { href: "/history", label: "历史", icon: History },
   { href: "/schedule", label: "赛事", icon: Calendar },
-  { href: "/weekly-schedule", label: "固定安排", icon: CalendarDays },
   { href: "/admin", label: "管理", icon: Settings },
-  { href: "/admin/assistant", label: "助手", icon: Bot },
 ];
 
 export function Navbar() {

@@ -9,8 +9,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "VolleyBoard - 排协活动看板",
-  description: "排协内部实时活动看板",
+  title: "VolleyBoard - 排协赛事与活动",
+  description: "排协赛事与活动信息中心：赛事进度、赛程、比分、排名与赛事资料",
 };
 
 export default function RootLayout({

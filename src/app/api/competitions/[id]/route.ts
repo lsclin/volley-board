@@ -18,6 +18,7 @@ export async function GET(
           orderBy: { startAt: "asc" },
         },
         files: { orderBy: { createdAt: "desc" } },
+        teams: { orderBy: { name: "asc" } },
       },
     });
 
