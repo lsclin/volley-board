@@ -1,6 +1,7 @@
 export const matchStatus = {
   label(status: string): string {
     const map: Record<string, string> = {
+      pending: "待确认",
       scheduled: "未开始",
       finished: "已结束",
       cancelled: "已取消",
@@ -9,6 +10,8 @@ export const matchStatus = {
   },
   badge(status: string): string {
     const map: Record<string, string> = {
+      pending:
+        "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800",
       scheduled:
         "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800",
       finished:

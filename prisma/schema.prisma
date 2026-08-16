@@ -27,6 +27,7 @@ enum AttendanceStatus {
 }
 
 enum MatchStatus {
+  pending
   scheduled
   finished
   cancelled
@@ -79,6 +80,8 @@ model Team {
   competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   matchesA      Match[]      @relation("TeamA")
   matchesB      Match[]      @relation("TeamB")
+
+  @@index([competitionId])
 }
 
 model Competition {
@@ -111,7 +114,7 @@ model CompetitionFile {
 model Match {
   id            String       @id @default(cuid())
   competitionId String?
-  startAt       DateTime
+  startAt       DateTime?
   location      String
   teamAId       String
   teamBId       String
@@ -122,6 +125,9 @@ model Match {
   teamB         Team         @relation("TeamB", fields: [teamBId], references: [id], onDelete: Cascade)
   competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: SetNull)
   sets          MatchSet[]
+
+  @@index([competitionId])
+  @@index([startAt])
 }
 
 model MatchSet {

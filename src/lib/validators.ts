@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-export const attendanceSchema = z.object({
-  clientId: z.string().min(1, "clientId is required"),
-  status: z.enum(["expected", "arrived", "cancelled"]),
-});
-
 export const createActivitySchema = z.object({
   title: z.string().min(1, "Title is required").default("今晚野球"),
   type: z.enum(["pickup", "training", "friendly", "match"]).default("pickup"),
@@ -30,7 +25,8 @@ export const updateActivitySchema = z.object({
 
 export const createMatchSchema = z.object({
   competitionId: z.string().min(1, "请选择所属赛事"),
-  startAt: z.string().datetime(),
+  // null / 缺省 = 时间待确认（pending）
+  startAt: z.string().datetime().nullable().optional(),
   location: z.string().min(1, "Location is required"),
   teamAId: z.string().min(1),
   teamBId: z.string().min(1),
@@ -48,11 +44,11 @@ export const createMatchSchema = z.object({
 
 export const updateMatchSchema = z.object({
   competitionId: z.string().nullable().optional(),
-  startAt: z.string().datetime().optional(),
+  startAt: z.string().datetime().nullable().optional(),
   location: z.string().min(1).optional(),
   teamAId: z.string().min(1).optional(),
   teamBId: z.string().min(1).optional(),
-  status: z.enum(["scheduled", "finished", "cancelled"]).optional(),
+  status: z.enum(["pending", "scheduled", "finished", "cancelled"]).optional(),
   note: z.string().nullable().optional(),
   sets: z
     .array(
@@ -75,7 +71,6 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-export type AttendanceInput = z.infer<typeof attendanceSchema>;
 export type CreateActivityInput = z.infer<typeof createActivitySchema>;
 export type UpdateActivityInput = z.infer<typeof updateActivitySchema>;
 export type CreateMatchInput = z.infer<typeof createMatchSchema>;

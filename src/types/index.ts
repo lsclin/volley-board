@@ -68,6 +68,7 @@ export interface HistoryStats {
 export interface TeamRanking {
   teamId: string;
   teamName: string;
+  matchesPlayed: number;
   wins: number;
   losses: number;
   points: number;
@@ -75,6 +76,10 @@ export interface TeamRanking {
   setsLost: number;
   pointsScored: number;
   pointsConceded: number;
+  /** 胜负局比 = 胜局 / 负局；负局为 0 且胜局 > 0 时为 null（表示无穷大），全部为 0 时为 0 */
+  setRatio: number | null;
+  /** 得失分比 = 总得分 / 总失分；总失分为 0 且总得分 > 0 时为 null（表示无穷大），全部为 0 时为 0 */
+  pointRatio: number | null;
 }
 
 export interface CompetitionWithMatches extends Competition {
