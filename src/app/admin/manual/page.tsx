@@ -1,5 +1,4 @@
 import {
-  activityStatusItems,
   announcementExample,
   assistantExamples,
   faqItems,
@@ -101,7 +100,7 @@ export default function AdminManualPage() {
           <div>
             <h1 className="text-xl font-bold text-blue-950">管理员使用手册</h1>
             <p className="mt-1 text-sm leading-6 text-blue-800">
-              这份手册只说明当前管理员如何使用网站，适合日常维护野球活动、赛事、资料和公告。
+              这份手册说明管理员如何使用网站维护赛事、队伍、比赛、资料和活动，并沉淀管理经验。
             </p>
           </div>
         </div>
@@ -126,19 +125,14 @@ export default function AdminManualPage() {
       </section>
 
       {manualSections.map((section) => {
-        if (section.id === "pickup") {
+        if (section.id === "positioning") {
           return (
             <SectionCard key={section.id} {...section}>
               <div className="mt-4 border-t border-gray-100 pt-4">
-                <h3 className="text-sm font-semibold text-gray-900">活动状态</h3>
-                <DefinitionGrid items={activityStatusItems} />
-              </div>
-              <div className="mt-4 border-t border-gray-100 pt-4">
-                <h3 className="text-sm font-semibold text-gray-900">成员按钮含义</h3>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  公开端入口
+                </h3>
                 <DefinitionGrid items={memberButtonItems} />
-                <p className="mt-3 text-sm leading-6 text-gray-600">
-                  如果成员改主意了，再次点击已选状态可以取消记录。
-                </p>
               </div>
             </SectionCard>
           );
